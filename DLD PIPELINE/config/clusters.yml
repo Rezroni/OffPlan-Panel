@@ -1,0 +1,26 @@
+# Prime clusters. `area_name_en` is the exact value DLD's API filters on --
+# it is often NOT the marketing/master-project name (confirmed live,
+# 2026-08-01: "Dubai Hills Estate" returns 0 rows as an area_name_en; the
+# actual DLD area is "Hadaeq Sheikh Mohammed Bin Rashid", and every
+# master_project_en value found inside it -- Sidra 2/3, Maple 2/3, plain
+# "Dubai Hills Estate" -- is a Dubai Hills sub-phase, so the area maps
+# cleanly 1:1 onto the marketing name). This is the same class of mismatch
+# the plan flagged for area vs master_community (Marsa Dubai / Dubai Marina).
+#
+# Top 5 chosen 2026-08-02 from a live citywide sample: 9 weekly-spaced days,
+# Residential+Sales only, ranked by transaction volume, cross-checked against
+# master_project_en composition per area before committing (see chat --
+# Burj Khalifa and Al Barsha South Fourth came back 100% pure; Marsa Dubai is
+# ~77% Dubai Marina plus the adjacent Dubai Harbour / JBR waterfront strip).
+# 5 of 10 prime clusters decided -- the rest are still open.
+clusters:
+  - display_name: Business Bay
+    area_name_en: Business Bay
+  - display_name: Dubai Hills Estate
+    area_name_en: Hadaeq Sheikh Mohammed Bin Rashid
+  - display_name: Dubai Marina
+    area_name_en: Marsa Dubai
+  - display_name: Downtown Dubai
+    area_name_en: Burj Khalifa
+  - display_name: JVC
+    area_name_en: Al Barsha South Fourth

@@ -1,0 +1,12 @@
+.env
+.venv*/
+__pycache__/
+*.pyc
+data/raw/
+data/*.duckdb
+data/out/
+state/*.jsonl
+state/token_cache.json
+state/validation_report_*.json
+data/all_dld_projects.json
+.DS_Store

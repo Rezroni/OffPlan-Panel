@@ -1,0 +1,55 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Next.js & Builds
+/.next/
+/out/
+/build/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing & E2E
+/coverage
+/.playwright-cli/
+/output/
+/test-results/
+
+# Environment & Secrets
+.env
+.env*.local
+*.env
+*.pem
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv*/
+venv/
+ENV/
+
+# Databases & Large Data Files (Do not commit binary databases to git)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.duckdb
+*.duckdb.*
+db/*.db
+db/*.db-shm
+db/*.db-wal
+DLD PIPELINE/data/
+DLD PIPELINE/state/
+DLD PIPELINE/.claude
+
+# OS & Logs
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
