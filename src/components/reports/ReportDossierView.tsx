@@ -669,7 +669,7 @@ export function ReportDossierView({ snapshot, isPrintMode }: ReportDossierViewPr
               </h3>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200 font-semibold">
-                  {aiSynthesis?.source === "gemini_2.5_flash" ? "Google Gemini 2.5 Flash Verified" : "DLD Evidence Engine"}
+                  Verified by our System
                 </span>
                 <button
                   type="button"
@@ -678,7 +678,7 @@ export function ReportDossierView({ snapshot, isPrintMode }: ReportDossierViewPr
                   className="no-print text-[11px] font-medium text-sky-700 hover:text-sky-900 underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
                 >
                   <Sparkles className="h-3 w-3" />
-                  {aiLoading ? (isRtl ? "جاري التحديث..." : "Обновление...") : (isRtl ? "تحديث بالذكاء الاصطناعي" : "Обновить Gemini")}
+                  {aiLoading ? (isRtl ? "جاري التحديث..." : "Обновление...") : (isRtl ? "تحديث التحليل" : "Обновить анализ")}
                 </button>
               </div>
             </div>
@@ -1085,7 +1085,7 @@ export function ReportDossierView({ snapshot, isPrintMode }: ReportDossierViewPr
                   </div>
                   {aiSynthesis?.source && (
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-200/70 text-slate-700">
-                      {aiSynthesis.source === "gemini_2.5_flash" ? "Google Gemini 2.5 Flash Verified" : "DLD Evidence Engine"}
+                      Verified by our System
                     </span>
                   )}
                 </div>

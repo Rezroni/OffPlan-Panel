@@ -17,6 +17,10 @@ import {
   Zap,
   Download,
   CalendarDays,
+  Server,
+  Sparkles,
+  Info,
+  Check,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +59,35 @@ type FreshnessInfo = {
   checkedAt: string;
 };
 
+type PipelineStep = {
+  id: string;
+  name: string;
+  description: string;
+  status: "pending" | "running" | "success" | "error";
+  durationMs?: number;
+  output?: string;
+};
+
+type SyncJobState = {
+  id: string;
+  status: "running" | "success" | "error" | "idle";
+  startedAt: string;
+  completedAt?: string;
+  canCloseTab: boolean;
+  currentStepIndex: number;
+  totalSteps: number;
+  currentStepTitle: string;
+  userGuidance?: {
+    canClose: boolean;
+    headlineRu: string;
+    headlineEn: string;
+    detailsRu: string;
+    detailsEn: string;
+  };
+  steps: PipelineStep[];
+  error?: string;
+};
+
 type SyncStep = {
   name: string;
   status: "success" | "error" | "skipped";
@@ -64,11 +97,14 @@ type SyncStep = {
 
 type SyncResponse = {
   status: "success" | "error" | "running";
-  startedAt: string;
+  startedAt?: string;
   completedAt?: string;
-  steps: SyncStep[];
+  steps?: SyncStep[];
   error?: string;
   freshness?: FreshnessInfo;
+  activeJob?: SyncJobState | null;
+  syncInProgress?: boolean;
+  canCloseTab?: boolean;
 };
 
 type Props = {
@@ -146,12 +182,25 @@ function MatchRow({ item, onConfirm, onReject }: {
 // Main Data Health Page
 // ---------------------------------------------------------------------------
 
+function formatElapsed(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
+
 export default function DataHealthClient({ pendingMatches: initialMatches, summary }: Props) {
   const [matches, setMatches] = useState(initialMatches);
   const [syncing, setSyncing] = useState(false);
+  const [activeJob, setActiveJob] = useState<SyncJobState | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [syncResult, setSyncResult] = useState<SyncResponse | null>(null);
   const [freshness, setFreshness] = useState<FreshnessInfo | null>(null);
   const [freshnessLoading, setFreshnessLoading] = useState(false);
+
+  const handleDismissJob = () => {
+    setActiveJob(null);
+    setSyncResult(null);
+  };
 
   const handleConfirm = async (id: string) => {
     setMatches((prev) => prev.filter((m) => m.id !== id));
@@ -169,7 +218,18 @@ export default function DataHealthClient({ pendingMatches: initialMatches, summa
       if (res.ok) {
         const data = await res.json();
         setFreshness(data.freshness);
-        if (data.syncInProgress) setSyncing(true);
+        if (data.activeJob) {
+          setActiveJob(data.activeJob);
+          if (data.activeJob.status === "running") {
+            setSyncing(true);
+          } else {
+            setSyncing(false);
+          }
+        } else if (data.syncInProgress) {
+          setSyncing(true);
+        } else {
+          setSyncing(false);
+        }
       }
     } catch {
       // silently fail
@@ -182,10 +242,55 @@ export default function DataHealthClient({ pendingMatches: initialMatches, summa
     fetchFreshness();
   }, [fetchFreshness]);
 
-  // Trigger sync
+  // Live polling when background job is running
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (syncing || (activeJob && activeJob.status === "running")) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch("/api/sync");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.freshness) setFreshness(data.freshness);
+            if (data.activeJob) {
+              setActiveJob(data.activeJob);
+              if (data.activeJob.status !== "running") {
+                setSyncing(false);
+              }
+            } else if (!data.syncInProgress) {
+              setSyncing(false);
+            }
+          }
+        } catch {
+          // ignore transient fetch error
+        }
+      }, 2000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [syncing, activeJob]);
+
+  // Elapsed timer when running
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (syncing || (activeJob && activeJob.status === "running")) {
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [syncing, activeJob]);
+
+  // Trigger sync in background
   const handleSync = async () => {
     if (syncing) return;
     setSyncing(true);
+    setElapsedSeconds(0);
     setSyncResult(null);
     try {
       const res = await fetch("/api/sync", {
@@ -195,6 +300,9 @@ export default function DataHealthClient({ pendingMatches: initialMatches, summa
       });
       const data: SyncResponse = await res.json();
       setSyncResult(data);
+      if (data.activeJob) {
+        setActiveJob(data.activeJob);
+      }
       if (data.freshness) setFreshness(data.freshness);
     } catch (err) {
       setSyncResult({
@@ -203,7 +311,6 @@ export default function DataHealthClient({ pendingMatches: initialMatches, summa
         steps: [],
         error: err instanceof Error ? err.message : "Network error",
       });
-    } finally {
       setSyncing(false);
     }
   };
@@ -379,7 +486,7 @@ export default function DataHealthClient({ pendingMatches: initialMatches, summa
                 )}
               </div>
 
-              {syncResult.steps.length > 0 && (
+              {syncResult.steps && syncResult.steps.length > 0 && (
                 <div className="space-y-1.5">
                   {syncResult.steps.map((step, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">

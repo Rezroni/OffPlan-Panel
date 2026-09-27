@@ -76,7 +76,7 @@ export function AlternativesClient({ initialData }: Props) {
               Alternatives &amp; Shortlist Engine
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl font-normal leading-relaxed">
-              Deterministic eligibility evaluation, dominated option filtering, and 3-role portfolio selection with Google Gemini commentary.
+              Deterministic eligibility evaluation, dominated option filtering, and 3-role portfolio selection with verified analytical commentary.
             </p>
           </div>
 
@@ -178,7 +178,7 @@ export function AlternativesClient({ initialData }: Props) {
                 <span>Executive Analytical Synthesis (AI Enhanced)</span>
               </div>
               <span className="text-[10px] font-bold uppercase px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700">
-                {data.aiCommentary.source === "gemini_2.5_flash" ? "Google Gemini 2.5 Flash" : "Deterministic Engine"}
+                {data.aiCommentary.source === "gemini_2.5_flash" ? "Verified by our System" : "Deterministic Engine"}
               </span>
             </div>
 

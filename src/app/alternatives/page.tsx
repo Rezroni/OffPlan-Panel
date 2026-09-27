@@ -3,7 +3,7 @@ import { AlternativesClient } from "@/components/alternatives/AlternativesClient
 
 export const metadata = {
   title: "Alternatives & Shortlist — Dubai Off-plan Research Desk",
-  description: "Section 8 shortlist selection with eligibility gates and Gemini 2.5 Flash commentary",
+  description: "Section 8 shortlist selection with eligibility gates and verified analytical commentary",
 };
 
 export default async function AlternativesPage() {
