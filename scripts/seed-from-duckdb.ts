@@ -365,9 +365,9 @@ async function main() {
     process.exit(1);
   }
 
-  // Set up SQLite connection
+  // Set up SQLite connection (disable foreign keys during streaming bulk ingestion)
   const sqlite = new Database(SQLITE_PATH);
-  sqlite.pragma("foreign_keys = ON");
+  sqlite.pragma("foreign_keys = OFF");
   const dbClient = drizzle(sqlite, { schema });
 
   // Connect to DuckDB via native package if available

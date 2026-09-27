@@ -17,9 +17,6 @@ import {
   Zap,
   Download,
   CalendarDays,
-  Server,
-  Sparkles,
-  Info,
   Check,
 } from "lucide-react";
 
@@ -455,66 +452,171 @@ export default function DataHealthClient({ pendingMatches: initialMatches, summa
             </div>
           )}
 
-          {/* Sync result */}
-          {syncResult && (
-            <div className={`rounded-xl p-4 space-y-3 border ${
-              syncResult.status === "success"
-                ? "bg-emerald-50/80 border-emerald-200"
-                : syncResult.status === "error"
-                  ? "bg-rose-50/80 border-rose-200"
-                  : "bg-sky-50/80 border-sky-200"
-            }`}>
-              <div className="flex items-center gap-2">
-                {syncResult.status === "success" ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                ) : syncResult.status === "error" ? (
-                  <XCircle className="h-4 w-4 text-rose-600" />
-                ) : (
-                  <Loader2 className="h-4 w-4 text-sky-600 animate-spin" />
-                )}
-                <span className="text-sm font-bold text-slate-900">
-                  {syncResult.status === "success"
-                    ? "Sync completed successfully!"
-                    : syncResult.status === "error"
-                      ? "Sync completed with errors"
-                      : "Sync in progress…"}
-                </span>
-                {syncResult.completedAt && (
-                  <span className="text-xs text-slate-500 ml-auto">
-                    {new Date(syncResult.completedAt).toLocaleTimeString()}
-                  </span>
-                )}
-              </div>
+          {/* Live Sync Process Monitor & Tab-Closure Reassurance */}
+          {(syncing || (activeJob && activeJob.status !== "idle") || syncResult) && (
+            <div className="space-y-4 pt-2">
+              {/* Reassurance Banner: Safe to Close Tab */}
+              {(syncing || activeJob?.status === "running") && (
+                <div className="rounded-2xl p-5 border-2 border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 shadow-sm relative overflow-hidden">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3.5">
+                      <div className="p-3 bg-emerald-600 text-white rounded-xl shadow-sm shrink-0 mt-0.5">
+                        <ShieldCheck className="h-6 w-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-600 text-white shadow-2xs">
+                            <Check className="h-3.5 w-3.5 stroke-[3]" />
+                            Safe to close this tab
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-emerald-800 border border-emerald-300 shadow-2xs">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            Фоновая задача на сервере
+                          </span>
+                        </div>
+                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                          Фоновая синхронизация DLD выполняется на сервере
+                        </h3>
+                        <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                          <strong>Вы можете спокойно закрыть эту вкладку или перейти на другие страницы!</strong> Процесс запущен независимо на сервере. Вам не нужно ждать — сервер автоматически скачает свежие транзакции DLD, проведёт дедупликацию в DuckDB и зафиксирует обновлённые данные в SQLite.
+                        </p>
+                      </div>
+                    </div>
 
-              {syncResult.steps && syncResult.steps.length > 0 && (
-                <div className="space-y-1.5">
-                  {syncResult.steps.map((step, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      {step.status === "success" ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                      ) : step.status === "error" ? (
-                        <XCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                      ) : (
-                        <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      )}
-                      <span className="font-medium text-slate-700">{step.name}</span>
-                      {step.durationMs !== undefined && (
-                        <span className="text-slate-400 font-mono">
-                          {step.durationMs > 60000
-                            ? `${(step.durationMs / 60000).toFixed(1)}m`
-                            : `${(step.durationMs / 1000).toFixed(1)}s`}
+                    <div className="flex md:flex-col items-center md:items-end justify-between shrink-0 pl-14 md:pl-0 border-t md:border-t-0 pt-3 md:pt-0 border-emerald-200/50">
+                      <div className="text-xs font-mono font-bold text-emerald-900 bg-white/90 border border-emerald-300 px-3 py-1.5 rounded-xl shadow-2xs flex items-center gap-1.5">
+                        <Loader2 className="h-3.5 w-3.5 text-emerald-600 animate-spin" />
+                        <span>Время: {formatElapsed(elapsedSeconds)}</span>
+                      </div>
+                      <span className="text-[11px] text-emerald-800 font-semibold mt-1">
+                        {activeJob ? `Шаг ${activeJob.currentStepIndex + 1} из 3` : "Инициализация..."}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Success Completed Card */}
+              {((activeJob && activeJob.status === "success") || (syncResult && syncResult.status === "success" && !activeJob)) && (
+                <div className="rounded-2xl p-5 border border-emerald-200 bg-emerald-50/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                        Синхронизация успешно завершена!
+                        <span className="text-xs font-mono font-normal text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                          {activeJob?.completedAt ? new Date(activeJob.completedAt).toLocaleTimeString() : syncResult?.completedAt ? new Date(syncResult.completedAt).toLocaleTimeString() : "Только что"}
                         </span>
+                      </h4>
+                      <p className="text-xs text-emerald-800 mt-0.5">
+                        Все данные DLD Open Data API загружены, обработаны в DuckDB и зафиксированы в SQLite. Каталог и CMA обновлены.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleDismissJob}
+                    className="self-end sm:self-center px-4 py-2 bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-100/60 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  >
+                    Понятно, закрыть
+                  </button>
+                </div>
+              )}
+
+              {/* Error Alert Card */}
+              {((activeJob && activeJob.status === "error") || (syncResult && syncResult.status === "error" && (!activeJob || activeJob.status !== "running"))) && (
+                <div className="rounded-2xl p-5 border border-rose-200 bg-rose-50/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-xs mt-0.5">
+                      <XCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-rose-950">
+                        Возникли ошибки при выполнении синхронизации
+                      </h4>
+                      <p className="text-xs text-rose-800 mt-0.5 font-mono">
+                        {activeJob?.error || syncResult?.error || "Некоторые этапы конвейера завершились с кодом ошибки."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleDismissJob}
+                    className="self-end sm:self-center px-4 py-2 bg-white text-rose-800 border border-rose-300 hover:bg-rose-100/60 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                  >
+                    Закрыть
+                  </button>
+                </div>
+              )}
+
+              {/* 3-Step Live Pipeline Status Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {((activeJob?.steps && activeJob.steps.length > 0) ? activeJob.steps : [
+                  { id: "step_fetch", name: "DLD Open Data API Fetch", description: "Загрузка транзакций купли-продажи и договоров аренды (Dubai Pulse)", status: (syncing ? "running" : "pending") as PipelineStep["status"] },
+                  { id: "step_duckdb", name: "DuckDB Analytical Staging", description: "Колоночный паркет, дедупликация и индексация", status: "pending" as PipelineStep["status"] },
+                  { id: "step_sqlite", name: "SQLite Catalog Synchronization", description: "Синхронизация моделей и актуализация каталога цен Oqood", status: "pending" as PipelineStep["status"] },
+                ] as PipelineStep[]).map((step, idx) => {
+                  const isCurrent = (activeJob?.currentStepIndex === idx) && (step.status === "running" || syncing);
+                  const isDone = step.status === "success";
+                  const isError = step.status === "error";
+
+                  return (
+                    <div
+                      key={step.id || idx}
+                      className={`rounded-xl p-4 border transition-all ${
+                        isCurrent
+                          ? "bg-white border-sky-400 ring-2 ring-sky-500/20 shadow-md"
+                          : isDone
+                            ? "bg-emerald-50/50 border-emerald-200"
+                            : isError
+                              ? "bg-rose-50/50 border-rose-200"
+                              : "bg-white/60 border-slate-200/80 opacity-75"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                          Шаг {idx + 1} из 3
+                        </span>
+                        <div>
+                          {isCurrent ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Выполняется
+                            </span>
+                          ) : isDone ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              Готово {step.durationMs ? `(${(step.durationMs / 1000).toFixed(1)}s)` : ""}
+                            </span>
+                          ) : isError ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                              <XCircle className="h-3 w-3 text-rose-600" />
+                              Ошибка
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                              <Clock className="h-3 w-3" />
+                              В очереди
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <h5 className="font-bold text-slate-900 text-sm">{step.name}</h5>
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{step.description}</p>
+
+                      {step.output && (
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 text-[10px] text-slate-500 font-mono truncate">
+                          {step.output.trim().split("\n").slice(-1)[0]}
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {syncResult.error && (
-                <div className="text-xs text-rose-700 bg-rose-100/60 rounded-lg p-2 font-mono break-all">
-                  {syncResult.error}
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
