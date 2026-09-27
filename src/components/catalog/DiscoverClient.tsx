@@ -22,6 +22,7 @@ import {
   List,
   ArrowRight,
   ExternalLink,
+  Home,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,8 @@ export type ProjectListItem = {
   developerBrand: string | null;
   areaNameEn: string | null;
   status: string | null;
+  propertyType?: string;
+  dldProjectNumber?: string | null;
   expectedHandoverDate: string | null;
   constructionProgressPct: number | null;
   researchStatus: string;
@@ -51,6 +54,36 @@ type Props = {
     pendingMatches: number;
   };
 };
+
+// ---------------------------------------------------------------------------
+// Property Type Badge
+// ---------------------------------------------------------------------------
+
+function PropertyTypeBadge({ type }: { type?: string }) {
+  const t = (type || "apartment").toLowerCase();
+  if (t === "villa") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+        <Home className="h-2.5 w-2.5 text-amber-600" />
+        Виллы &amp; таунхаусы
+      </span>
+    );
+  }
+  if (t === "both") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 border border-purple-200">
+        <Layers className="h-2.5 w-2.5 text-purple-600" />
+        Смешанный (Apts + Villas)
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+      <Building2 className="h-2.5 w-2.5 text-sky-600" />
+      Квартиры
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Research Status Badge
@@ -114,9 +147,9 @@ function ProjectCard({ project }: { project: ProjectListItem }) {
     <div className="group bg-white border border-slate-200/90 hover:border-slate-300 rounded-2xl p-5 sm:p-6 transition-all duration-150 shadow-sm hover:shadow-md flex flex-col justify-between space-y-4">
       <div>
         {/* Top bar with status and tags */}
-        <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start justify-between gap-3 mb-2">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <StatusDot status={project.status} />
               <Link
                 href={`/projects/${project.id}`}
@@ -124,14 +157,24 @@ function ProjectCard({ project }: { project: ProjectListItem }) {
               >
                 {project.nameEn}
               </Link>
+              {project.dldProjectNumber && (
+                <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                  #{project.dldProjectNumber}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 truncate font-medium">
               {project.developerBrand ?? "Developer unknown"}
             </p>
           </div>
-          <div className="shrink-0">
+          <div className="shrink-0 flex items-center gap-1.5">
             <ResearchStatusBadge status={project.researchStatus} />
           </div>
+        </div>
+
+        {/* Property Type Badge */}
+        <div className="flex items-center gap-2 mb-2">
+          <PropertyTypeBadge type={project.propertyType} />
         </div>
 
         {/* Location & Handover */}
@@ -188,6 +231,7 @@ function ProjectCard({ project }: { project: ProjectListItem }) {
 
 export default function DiscoverClient({ initialProjects, total, dataHealth }: Props) {
   const [search, setSearch] = useState("");
+  const [propertyTypeFilter, setPropertyTypeFilter] = useState<"all" | "apartment" | "villa">("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [areaFilter, setAreaFilter] = useState<string>("all");
   const [pageSize, setPageSize] = useState<number>(30);
@@ -203,24 +247,46 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
     return Array.from(set).sort();
   }, [initialProjects]);
 
+  // Dynamic counts for property types
+  const counts = useMemo(() => {
+    let apt = 0;
+    let villa = 0;
+    for (const p of initialProjects) {
+      const pt = (p.propertyType || "apartment").toLowerCase();
+      if (pt === "villa" || pt === "both") villa++;
+      if (pt === "apartment" || pt === "both") apt++;
+    }
+    return { all: initialProjects.length, apartment: apt, villa };
+  }, [initialProjects]);
+
   // Client-side filtering across ALL loaded projects
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const cleanQ = q.replace(/^#/, "");
     return initialProjects.filter((p) => {
+      const pt = (p.propertyType || "apartment").toLowerCase();
+      const matchPropType =
+        propertyTypeFilter === "all" ||
+        (propertyTypeFilter === "villa" && (pt === "villa" || pt === "both")) ||
+        (propertyTypeFilter === "apartment" && (pt === "apartment" || pt === "both"));
+
       const matchSearch =
-        !search ||
-        p.nameEn.toLowerCase().includes(search.toLowerCase()) ||
-        (p.developerBrand ?? "").toLowerCase().includes(search.toLowerCase()) ||
-        (p.areaNameEn ?? "").toLowerCase().includes(search.toLowerCase());
+        !q ||
+        p.nameEn.toLowerCase().includes(q) ||
+        (p.developerBrand ?? "").toLowerCase().includes(q) ||
+        (p.areaNameEn ?? "").toLowerCase().includes(q) ||
+        (p.dldProjectNumber && p.dldProjectNumber.toLowerCase().includes(cleanQ)) ||
+        p.id.toLowerCase().includes(cleanQ);
 
       const matchStatus = statusFilter === "all" || p.status === statusFilter;
       const matchArea = areaFilter === "all" || p.areaNameEn === areaFilter;
 
-      return matchSearch && matchStatus && matchArea;
+      return matchPropType && matchSearch && matchStatus && matchArea;
     });
-  }, [initialProjects, search, statusFilter, areaFilter]);
+  }, [initialProjects, search, propertyTypeFilter, statusFilter, areaFilter]);
 
   // Reset page when filters change
-  const handleFilterChange = (setter: (v: string) => void, val: string) => {
+  const handleFilterChange = (setter: (v: any) => void, val: any) => {
     setter(val);
     setPage(1);
   };
@@ -277,13 +343,79 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
             </div>
           </div>
 
+          {/* Property Type Switcher: «Все» / «Квартиры» / «Виллы и таунхаусы» */}
+          <div className="pt-6 pb-2 border-b border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="inline-flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200/80 shadow-inner gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleFilterChange(setPropertyTypeFilter, "all")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    propertyTypeFilter === "all"
+                      ? "bg-white text-slate-900 shadow-sm border border-slate-200"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                  }`}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Все</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    propertyTypeFilter === "all" ? "bg-slate-100 text-slate-800" : "bg-slate-200/60 text-slate-500"
+                  }`}>
+                    {counts.all.toLocaleString()}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleFilterChange(setPropertyTypeFilter, "apartment")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    propertyTypeFilter === "apartment"
+                      ? "bg-white text-sky-800 shadow-sm border border-slate-200"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                  }`}
+                >
+                  <Building2 className="h-3.5 w-3.5 text-sky-600" />
+                  <span>Квартиры</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    propertyTypeFilter === "apartment" ? "bg-sky-50 text-sky-700" : "bg-slate-200/60 text-slate-500"
+                  }`}>
+                    {counts.apartment.toLocaleString()}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleFilterChange(setPropertyTypeFilter, "villa")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    propertyTypeFilter === "villa"
+                      ? "bg-white text-amber-800 shadow-sm border border-slate-200"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                  }`}
+                >
+                  <Home className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Виллы и таунхаусы</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    propertyTypeFilter === "villa" ? "bg-amber-50 text-amber-800" : "bg-slate-200/60 text-slate-500"
+                  }`}>
+                    {counts.villa.toLocaleString()}
+                  </span>
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-500 font-medium hidden sm:flex items-center gap-1.5">
+                <Filter className="h-3.5 w-3.5 text-slate-400" />
+                <span>Фильтр по типу объекта</span>
+              </div>
+            </div>
+          </div>
+
           {/* Search Input Bar */}
-          <div className="pt-6 flex flex-col md:flex-row gap-3">
+          <div className="pt-4 flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search across all 3,000+ projects, developers, areas…"
+                placeholder="Поиск по названию, застройщику, району или DLD #номеру (напр. #4430, #3859, Danube)..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -301,7 +433,7 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
                 onChange={(e) => handleFilterChange(setAreaFilter, e.target.value)}
                 className="bg-white border border-slate-300 rounded-xl px-3.5 py-3 text-xs text-slate-700 focus:outline-none focus:border-sky-500 max-w-[200px] shadow-sm"
               >
-                <option value="all">All Areas ({uniqueAreas.length})</option>
+                <option value="all">Все районы ({uniqueAreas.length})</option>
                 {uniqueAreas.map((a) => (
                   <option key={a} value={a}>
                     {a}
@@ -315,7 +447,7 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
                 onChange={(e) => handleFilterChange(setStatusFilter, e.target.value)}
                 className="bg-white border border-slate-300 rounded-xl px-3.5 py-3 text-xs text-slate-700 focus:outline-none focus:border-sky-500 shadow-sm"
               >
-                <option value="all">All Statuses</option>
+                <option value="all">Все статусы</option>
                 <option value="active">Active (Off-Plan)</option>
                 <option value="completed">Completed</option>
                 <option value="suspended">Suspended</option>
@@ -330,10 +462,10 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
                 }}
                 className="bg-white border border-slate-300 rounded-xl px-3 py-3 text-xs text-slate-700 focus:outline-none focus:border-sky-500 shadow-sm"
               >
-                <option value={15}>15 / page</option>
-                <option value={30}>30 / page</option>
-                <option value={60}>60 / page</option>
-                <option value={120}>120 / page</option>
+                <option value={15}>15 / стр</option>
+                <option value={30}>30 / стр</option>
+                <option value={60}>60 / стр</option>
+                <option value={120}>120 / стр</option>
               </select>
 
               {/* View Mode Switcher (Grid vs Table) */}
@@ -368,13 +500,13 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
         {/* Results Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500 pb-2 border-b border-slate-200">
           <div>
-            Showing{" "}
+            Показано{" "}
             <strong className="text-slate-900 font-mono">
               {filtered.length > 0 ? (page - 1) * pageSize + 1 : 0}–
               {Math.min(page * pageSize, filtered.length)}
             </strong>{" "}
-            of <strong className="text-slate-900 font-mono">{filtered.length.toLocaleString()}</strong> projects
-            {filtered.length < total && ` (filtered from ${total.toLocaleString()})`}
+            из <strong className="text-slate-900 font-mono">{filtered.length.toLocaleString()}</strong> проектов
+            {filtered.length < total && ` (отфильтровано из ${total.toLocaleString()})`}
           </div>
 
           {totalPages > 1 && (
@@ -387,7 +519,7 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className="px-3 py-1 rounded-lg bg-white text-xs text-slate-800 font-mono font-bold border border-slate-200 shadow-sm">
-                Page {page} of {totalPages}
+                Стр {page} из {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -404,8 +536,8 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
         {filtered.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 text-center py-20 text-slate-500 space-y-3 shadow-sm">
             <Building2 className="h-12 w-12 mx-auto mb-2 text-slate-400" />
-            <p className="text-lg font-bold text-slate-900">No projects found</p>
-            <p className="text-xs text-slate-500">Try adjusting your search query or area filters.</p>
+            <p className="text-lg font-bold text-slate-900">Проекты не найдены</p>
+            <p className="text-xs text-slate-500">Попробуйте изменить поисковый запрос или фильтры районов/типов.</p>
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -420,14 +552,15 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 text-[10px] uppercase font-bold tracking-wider text-slate-600 bg-slate-50">
-                    <th className="py-3.5 px-5">Project Name</th>
-                    <th className="py-3.5 px-5">Developer</th>
-                    <th className="py-3.5 px-5">Area</th>
-                    <th className="py-3.5 px-5">Status</th>
-                    <th className="py-3.5 px-5">Progress</th>
-                    <th className="py-3.5 px-5">Handover</th>
-                    <th className="py-3.5 px-5">Units</th>
-                    <th className="py-3.5 px-5 text-right">Action</th>
+                    <th className="py-3.5 px-5">Название проекта</th>
+                    <th className="py-3.5 px-5">Тип</th>
+                    <th className="py-3.5 px-5">Застройщик</th>
+                    <th className="py-3.5 px-5">Район</th>
+                    <th className="py-3.5 px-5">Статус</th>
+                    <th className="py-3.5 px-5">Прогресс</th>
+                    <th className="py-3.5 px-5">Сдача</th>
+                    <th className="py-3.5 px-5">Юниты</th>
+                    <th className="py-3.5 px-5 text-right">Действие</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -435,19 +568,35 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
                     <tr key={project.id} className="hover:bg-slate-50/70 transition-colors group">
                       <td className="py-3.5 px-5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center shrink-0">
-                            <Building2 className="h-4 w-4 text-sky-600" />
+                          <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
+                            (project.propertyType || "apartment") === "villa" ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-sky-50 border-sky-200 text-sky-600"
+                          }`}>
+                            {(project.propertyType || "apartment") === "villa" ? (
+                              <Home className="h-4 w-4" />
+                            ) : (
+                              <Building2 className="h-4 w-4" />
+                            )}
                           </div>
                           <div>
-                            <Link
-                              href={`/projects/${project.id}`}
-                              className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors block text-sm"
-                            >
-                              {project.nameEn}
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <Link
+                                href={`/projects/${project.id}`}
+                                className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors block text-sm"
+                              >
+                                {project.nameEn}
+                              </Link>
+                              {project.dldProjectNumber && (
+                                <span className="text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
+                                  #{project.dldProjectNumber}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] font-mono text-slate-400">{project.id}</span>
                           </div>
                         </div>
+                      </td>
+                      <td className="py-3.5 px-5">
+                        <PropertyTypeBadge type={project.propertyType} />
                       </td>
                       <td className="py-3.5 px-5 text-slate-700 font-medium">
                         {project.developerBrand ?? "Unknown Developer"}
@@ -480,7 +629,7 @@ export default function DiscoverClient({ initialProjects, total, dataHealth }: P
                           href={`/projects/${project.id}`}
                           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold transition-all shadow-sm"
                         >
-                          <span>Analyze</span>
+                          <span>Анализ</span>
                           <ArrowRight className="h-3 w-3" />
                         </Link>
                       </td>

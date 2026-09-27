@@ -6,6 +6,8 @@ import {
   getProjectById,
   getProjectUnitTypes,
   getCmaAnalysisForProject,
+  getProjectRecentTransactions,
+  getProjectResaleChains,
 } from "@/server/dal/catalog";
 import { getClusterPipelineAnalysis } from "@/server/dal/pipeline";
 import ProjectDetailClient from "@/components/catalog/ProjectDetailClient";
@@ -30,16 +32,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProjectDetailPage({ params }: Props) {
   const { id } = await params;
-  const [project, unitTypes, cmaData, pipelineAnalysis] = await Promise.all([
+  const [project, unitTypes, pipelineAnalysis] = await Promise.all([
     getProjectById(id),
     getProjectUnitTypes(id),
-    getCmaAnalysisForProject({ projectId: id, bedrooms: 1 }),
     getClusterPipelineAnalysis(id),
   ]);
 
   if (!project) {
     notFound();
   }
+
+  const initialBedrooms = unitTypes[0]?.bedrooms ?? 1;
+
+  const [cmaData, initialTransactions, initialResaleChains] = await Promise.all([
+    getCmaAnalysisForProject({ projectId: id, bedrooms: initialBedrooms }),
+    getProjectRecentTransactions({ projectId: id, bedrooms: initialBedrooms, limit: 5 }),
+    getProjectResaleChains({ projectId: id, minConfidence: 90 }),
+  ]);
 
   const serializedCma = JSON.parse(JSON.stringify(cmaData.cma));
 
@@ -48,6 +57,8 @@ export default async function ProjectDetailPage({ params }: Props) {
       project={project}
       unitTypes={unitTypes}
       initialCma={serializedCma}
+      initialTransactions={initialTransactions}
+      initialResaleChains={initialResaleChains}
       pipelineAnalysis={pipelineAnalysis}
     />
   );

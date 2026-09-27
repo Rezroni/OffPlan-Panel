@@ -16,6 +16,7 @@ export interface DeveloperListItem {
   id: string;
   legalName: string;
   brandName: string | null;
+  displayName: string;
   dldDeveloperId: string | null;
   totalProjects: number;
   completedProjects: number;
@@ -25,8 +26,34 @@ export interface DeveloperListItem {
   onTimeRatePercent: number;
 }
 
+/**
+ * Resolves a clean, professional, non-empty display name for a developer.
+ * Strips isolated brackets, dots, and fallbacks cleanly.
+ */
+export function getDeveloperDisplayName(dev: {
+  brandName?: string | null;
+  legalName?: string | null;
+  dldDeveloperId?: string | null;
+  id?: string;
+}): string {
+  const clean = (s?: string | null) =>
+    (s || "")
+      .replace(/[\(\[\{]\s*[\.\s\-_]*[\)\]\}]/g, "")
+      .replace(/\.{2,}/g, "")
+      .trim();
+
+  const brand = clean(dev.brandName);
+  const legal = clean(dev.legalName);
+
+  if (brand && brand.length >= 2) return brand;
+  if (legal && legal.length >= 2) return legal;
+
+  const numId = dev.dldDeveloperId || dev.id?.replace(/^dev_/, "");
+  return numId ? `Developer #${numId}` : "Dubai Master Developer";
+}
+
 export async function listDevelopers(): Promise<DeveloperListItem[]> {
-  const allDevs = await db.select().from(developers).orderBy(asc(developers.legalName));
+  const allDevs = await db.select().from(developers);
   const allProjects = await db.select().from(projects);
 
   const projectsByDev = new Map<string, typeof allProjects>();
@@ -53,12 +80,14 @@ export async function listDevelopers(): Promise<DeveloperListItem[]> {
       totalUnitsReported: p.totalUnitsReported,
     }));
 
-    const trackRecord = buildDeveloperTrackRecord(dev.id, dev.legalName, dev.brandName, facts);
+    const displayName = getDeveloperDisplayName(dev);
+    const trackRecord = buildDeveloperTrackRecord(dev.id, dev.legalName, dev.brandName || displayName, facts);
 
     return {
       id: dev.id,
-      legalName: dev.legalName,
-      brandName: dev.brandName,
+      legalName: dev.legalName || displayName,
+      brandName: dev.brandName || displayName,
+      displayName,
       dldDeveloperId: dev.dldDeveloperId,
       totalProjects: trackRecord.totalProjects,
       completedProjects: trackRecord.completedProjectsCount,
@@ -69,11 +98,19 @@ export async function listDevelopers(): Promise<DeveloperListItem[]> {
     };
   });
 
+  // Sort: Developers with projects first (most projects to least), then alphabetical by display name
+  list.sort((a, b) => {
+    if (b.totalProjects !== a.totalProjects) {
+      return b.totalProjects - a.totalProjects;
+    }
+    return a.displayName.localeCompare(b.displayName);
+  });
+
   return list;
 }
 
 export async function getDeveloperById(id: string): Promise<{
-  developer: typeof developers.$inferSelect;
+  developer: typeof developers.$inferSelect & { displayName: string };
   trackRecord: DeveloperTrackRecordSummary;
 } | null> {
   const [dev] = await db.select().from(developers).where(eq(developers.id, id)).limit(1);
@@ -94,10 +131,14 @@ export async function getDeveloperById(id: string): Promise<{
     totalUnitsReported: p.totalUnitsReported,
   }));
 
-  const trackRecord = buildDeveloperTrackRecord(dev.id, dev.legalName, dev.brandName, facts);
+  const displayName = getDeveloperDisplayName(dev);
+  const trackRecord = buildDeveloperTrackRecord(dev.id, dev.legalName, dev.brandName || displayName, facts);
 
   return {
-    developer: dev,
+    developer: {
+      ...dev,
+      displayName,
+    },
     trackRecord,
   };
 }

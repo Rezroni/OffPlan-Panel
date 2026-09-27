@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/": {
+      "targetKind": "existing-ui",
+      "projectId": "ee9b55ec-4fac-4888-a81f-856bfb552837",
+      "baselineDraftId": "db2fba22-527b-45a6-bc60-61226057397b",
+      "activeDraftId": "db2fba22-527b-45a6-bc60-61226057397b",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "8c590a60-682c-4cc0-a291-2ecd1e441ae8"
+      ],
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md",
+        "src/app/page.tsx",
+        "src/components/desk/Header.tsx",
+        "src/components/desk/ClientBriefSection.tsx",
+        "src/components/desk/OfferComparisonSection.tsx",
+        "src/components/desk/FundingTimelineSection.tsx",
+        "src/components/desk/ExitScenariosSection.tsx",
+        "src/components/desk/PrintPreviewModal.tsx",
+        "src/components/desk/ProjectSelectModal.tsx",
+        "src/app/globals.css",
+        "tailwind.config.ts",
+        "src/lib/decimal.ts"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "8e0171420422b01af423d16074c51aacc490fd30b21b9b83f0846cfc61c047c0",
+        ".superdesign/init/theme.md": "282615846f9e4eef46cf7df7421adfcc003dea4002e428782f171a876517a885",
+        "src/app/page.tsx": "5bf6933a1544957c33cbf10f17d78def873914b857aae6be533e572f3cd0090b",
+        "src/components/desk/Header.tsx": "925bfc5a5855d32f6579f0f39b726b7c1f94b2b81f1b78af9904da9c97ae1dd9",
+        "src/components/desk/ClientBriefSection.tsx": "a78faea27b84ddb48f1afe4fba09668b24c4f9e35a139cbf5dc2281584887ec7",
+        "src/components/desk/OfferComparisonSection.tsx": "ca71d4baf0f7fc91d2dd8af92074b0fc48c5712402b4c3a5923d9f7f09172ec5",
+        "src/components/desk/FundingTimelineSection.tsx": "79fc7419da28dfb59c5b693d82d2976d666a3e5736eac183407512b0c28b60ce",
+        "src/components/desk/ExitScenariosSection.tsx": "61edb3baaefea71f7905bb80e38fe79f22e9813b94fbce7b57da780e9c0c023d",
+        "src/components/desk/PrintPreviewModal.tsx": "db6869ad005648705fa72f7b3dbe2ba15a22afb0266025891133c8a127f09fdf",
+        "src/components/desk/ProjectSelectModal.tsx": "bec61423ae1f61bf4c9e1d3d6dc8482fedf8f5c30d36b7832fb967eff98eccd4",
+        "src/app/globals.css": "66fa7e7ffafdce7eaf00bb69171eed6e0f6aa909270b7d99c048be0be6735b2f",
+        "tailwind.config.ts": "3b5353174bb37914337b607adb6f08233479d8ebff471f879a9b87d271f1b12b",
+        "src/lib/decimal.ts": "b6bbe27cf700d1110504433684756fb22dfc85a26452a8d1b5c7782fd9d97dfc"
+      },
+      "components": [
+        {
+          "name": "Header",
+          "id": "fc16044d-8e1e-42aa-8c62-493b4ee3d952",
+          "sourcePath": "src/components/desk/Header.tsx"
+        }
+      ],
+      "drafts": {
+        "db2fba22-527b-45a6-bc60-61226057397b": {
+          "title": "Current Desk — Baseline",
+          "visualDirection": "faithful current UI baseline",
+          "currentVersion": 1
+        },
+        "9b80fc9a-949c-41fc-9371-ffc1c38c9688": {
+          "title": "Decision Workbench",
+          "visualDirection": "case-first cadastral workbench with active cases and priorities",
+          "parentDraftId": "db2fba22-527b-45a6-bc60-61226057397b",
+          "currentVersion": 1
+        },
+        "c7e33604-dc37-4819-af79-119dcc08b885": {
+          "title": "Research Command Desk",
+          "visualDirection": "research-first split view with results and project evidence",
+          "parentDraftId": "db2fba22-527b-45a6-bc60-61226057397b",
+          "currentVersion": 1
+        }
+      },
+      "updatedAt": "2026-09-26T00:37:55Z"
+    }
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract_version": "1.0.0",
+  "generated_at": "2026-09-26T00:00:00Z",
+  "authoritative_adapter": "src/server/adapters/dld/dld-adapter.ts",
+  "storage_engine": "sqlite",
+  "sources": {
+    "dld_transactions-open-api": {
+      "status": "connected",
+      "official_name": "Dubai Pulse DLD Transactions Open Data",
+      "stable_primary_key": ["transaction_id"],
+      "target_table": "transaction_fact",
+      "field_mappings": {
+        "transaction_id": { "target": "id", "type": "text", "nullable": false, "transform": "string_trim", "quarantine_if_missing": true },
+        "instance_date": { "target": "transaction_date", "type": "text", "nullable": false, "format": "ISO-8601", "transform": "date_iso" },
+        "actual_worth": { "target": "transaction_value_aed", "type": "integer", "nullable": true, "unit": "AED", "transform": "safe_int", "exclude_if_non_positive": true },
+        "procedure_area": { "target": "area_sqm", "type": "real", "nullable": true, "unit": "sqm", "transform": "safe_float", "derived_target_sqft": "area_sqft", "sqft_multiplier": 10.7639104 },
+        "rooms_en": { "target": "bedrooms", "type": "integer", "nullable": true, "transform": "parse_bedrooms_exact", "semantics": "0=studio, null=unknown, never defaulted" },
+        "procedure_name_en": { "target": "transaction_type", "type": "text", "nullable": true },
+        "trans_group_en": { "target": "classification.is_excluded", "type": "boolean", "rule": "exclude if mortgage, gift, inheritance, bulk, whole building" },
+        "reg_type_en": { "target": "is_off_plan", "type": "boolean", "nullable": true, "rule": "true if off-plan, false if existing/ready, null if unknown" },
+        "property_usage_en": { "target": "is_residential", "type": "boolean", "nullable": true, "rule": "true if residential, false if commercial/industrial, null if unknown" },
+        "project_number": { "target": "matched_project_id", "type": "text", "nullable": true, "transform": "crosswalk_project_number_to_canonical_project_id", "policy": "leave unmatched if not in catalog; never append to proj_dld_ directly" },
+        "area_name_en": { "target": "area_name_en", "type": "text", "nullable": true },
+        "building_name_en": { "target": "building_name_en", "type": "text", "nullable": true },
+        "project_name_en": { "target": "project_name_en", "type": "text", "nullable": true }
+      }
+    },
+    "dld_rent_contracts-open-api": {
+      "status": "connected",
+      "official_name": "Dubai Pulse DLD Rent Contracts (Ejari) Open Data",
+      "stable_primary_key": ["contract_id", "line_number"],
+      "target_table": "rent_contract_fact",
+      "field_mappings": {
+        "contract_id": { "target": "id", "type": "text", "nullable": false, "transform": "composite_id_with_line_number", "quarantine_if_missing": true },
+        "contract_start_date": { "target": "contract_date", "type": "text", "nullable": false, "format": "ISO-8601" },
+        "contract_end_date": { "target": "end_date", "type": "text", "nullable": true, "format": "ISO-8601" },
+        "annual_amount": { "target": "annual_rent_aed", "type": "integer", "nullable": true, "unit": "AED", "fallback_source": "contract_amount", "exclude_if_non_positive": true },
+        "actual_area": { "target": "area_sqm", "type": "real", "nullable": true, "unit": "sqm", "derived_target_sqft": "area_sqft", "sqft_multiplier": 10.7639104 },
+        "contract_reg_type_en": { "target": "contract_type", "type": "text", "nullable": true, "allowed_values": ["new", "renew", null], "policy": "never default to new when absent" },
+        "no_of_prop": { "target": "is_multi_property", "type": "boolean", "nullable": true, "rule": "true if > 1, false if == 1, null if absent" },
+        "project_number": { "target": "matched_project_id", "type": "text", "nullable": true, "transform": "crosswalk_project_number_to_canonical_project_id" },
+        "property_usage_en": { "target": "is_excluded", "type": "boolean", "policy": "preserve null, do not assume residential" },
+        "ejari_property_sub_type_en": { "target": "bedrooms", "type": "integer", "nullable": true, "transform": "parse_bedrooms_exact" }
+      }
+    },
+    "dld_projects-open-api": {
+      "status": "connected",
+      "official_name": "Dubai Pulse DLD Projects Registry Open Data",
+      "stable_primary_key": ["project_id"],
+      "canonical_key_format": "proj_dld_<project_id>",
+      "target_table": "project",
+      "field_mappings": {
+        "project_id": { "target": "dld_project_id", "canonical_target": "id", "type": "text", "nullable": false },
+        "project_number": { "target": "external_crosswalk_index", "type": "text", "nullable": false },
+        "project_name_en": { "target": "name_en", "type": "text", "nullable": false, "fallback_source": "project_name" },
+        "project_name": { "target": "name_ar", "type": "text", "nullable": true },
+        "developer_id": { "target": "developer_id", "type": "text", "nullable": true, "prefix": "dev_" },
+        "master_developer_name": { "target": "master_developer_name", "type": "text", "nullable": true },
+        "project_status": { "target": "status", "type": "text", "nullable": true, "mapping": { "ACTIVE": "active", "COMPLETED": "completed", "CANCELLED": "suspended" } },
+        "percent_completed": { "target": "construction_progress_pct", "type": "real", "nullable": true, "range": [0, 100] },
+        "no_of_units": { "target": "total_units_reported", "type": "integer", "nullable": true }
+      }
+    },
+    "dld_oa_service_charges-open-api": {
+      "status": "connected",
+      "official_name": "Dubai Pulse DLD Mollak OA Service Charges Open Data",
+      "stable_primary_key": ["property_group_id", "budget_year", "usage_id", "service_category_id"],
+      "target_table": "service_charge_fact",
+      "field_mappings": {
+        "composite_id": { "target": "id", "type": "text", "format": "sc_<property_group_id>_<budget_year>_<usage_id>_<service_category_id>", "nullable": false },
+        "budget_year": { "target": "year", "type": "integer", "nullable": false, "policy": "never substitute current year" },
+        "service_cost": { "target": "raw_service_cost", "type": "real", "nullable": false, "unit_note": "Unstated billing unit; annual_charge_per_sqft set to null to avoid false sqft assumptions" },
+        "property_group_name_en": { "target": "building_name_en", "type": "text", "nullable": true },
+        "master_community_name_en": { "target": "area_name_en", "type": "text", "nullable": true },
+        "service_category_name_en": { "target": "charge_category", "type": "text", "nullable": true },
+        "project_id": { "target": "matched_project_id", "type": "text", "nullable": true, "prefix": "proj_dld_" }
+      }
+    },
+    "dld_developers-open": {
+      "status": "discovered_via_projects",
+      "official_name": "Dubai Pulse DLD Developers Open Data",
+      "stable_primary_key": ["developer_id"],
+      "target_table": "developer",
+      "notes": "Extracted and harmonized from dld_projects-open-api developer fields; separate brand from legal names"
+    },
+    "dld_units-open": {
+      "status": "discovered_on_demand",
+      "official_name": "Dubai Pulse DLD Units Open Data",
+      "stable_primary_key": ["property_id"],
+      "target_table": "unit_type",
+      "notes": "Large dataset; fetched on-demand per watchlist project"
+    },
+    "dld_residential_sale_index": {
+      "status": "disabled_unapproved",
+      "official_name": "DLD Residential Properties Price Index (RPPI)",
+      "disposition": "Disabled: commercial terms restrict external calculation usage without explicit written clearance",
+      "target_table": null
+    },
+    "docs.bayutapi.com": {
+      "status": "disabled_unlicensed",
+      "official_name": "Bayut Developer Portal API",
+      "disposition": "Disabled: commercial exploitation restricted under public ToU; live account/tier unverified",
+      "target_table": null
+    }
+  },
+  "reviewed_project_mappings": [
+    {
+      "project_name": "Eden House The Park",
+      "canonical_pk": "proj_dld_678813961",
+      "dld_project_id": "678813961",
+      "dld_project_number": "3382",
+      "master_developer": "Meraas Properties LLC",
+      "operating_developer": "H&H Development",
+      "area": "Al Wasl"
+    },
+    {
+      "project_name": "Azizi Aura Residences",
+      "canonical_pk": "proj_dld_83055243",
+      "dld_project_id": "83055243",
+      "dld_project_number": "1897",
+      "property_group_id": "243048329",
+      "master_developer": "Limitless LLC",
+      "operating_developer": "Azizi Developments",
+      "area": "Jabal Ali Industrial Second"
+    },
+    {
+      "project_name": "Avenue Residence 5",
+      "canonical_pk": "proj_dld_529545309",
+      "dld_project_id": "529545309",
+      "dld_project_number": "2744",
+      "master_developer": "Al Furjan LLC",
+      "operating_developer": "Al Furjan LLC",
+      "area": "Jabal Ali First"
+    }
+  ],
+  "limitations_register": [
+    "service_cost billing unit unstated in Mollak schema: stored as raw_service_cost, annual_charge_per_sqft left null",
+    "Missing coordinates for sub-buildings: tagged centroid/unknown",
+    "59 duplicate normalized project names identified in 3039 registry: ambiguous names routed to match_queue",
+    "RPPI and Bayut third-party sources marked disabled in production pipeline"
+  ]
+}

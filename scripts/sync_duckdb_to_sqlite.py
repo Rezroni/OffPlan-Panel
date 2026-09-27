@@ -42,7 +42,31 @@ def parse_bedrooms(sub_type_en):
         return 6
     return None
 
+# ==============================================================================
+# RETIRED / DEPRECATED SCRIPT (Phase 0 Data Contract Remediation - ADR 011)
+# ==============================================================================
+# This script has been retired as an active ingestion pipeline because:
+# 1. P0-03: Confused project_number with project_id, generating 287,584 dangling
+#    foreign keys in rent_contract_fact and unmatched transactions.
+# 2. P0-06: Asserted invented defaults for unknown/missing states (defaulted
+#    contract_type to 'new', property_usage to 'residential', registration to ready).
+# 3. P0-08: Diverged from the authoritative TypeScript transformation adapter.
+#
+# AUTHORITATIVE PATH:
+# Use the TypeScript DLD Adapter (src/server/adapters/dld/dld-adapter.ts) or
+# scripts/seed-from-duckdb.ts.
+# To repair existing database links safely, use scripts/repair_dld_project_links.py.
+# ==============================================================================
+
 def main():
+    if "--force-unsafe-legacy-run" not in sys.argv:
+        print("❌ ERROR: scripts/sync_duckdb_to_sqlite.py is RETIRED under ADR 011 (P0-02, P0-03, P0-06, P0-08).")
+        print("   Direct execution without contract validation causes foreign key corruption and schema drift.")
+        print("   -> To run the authoritative ingestion path, use: npx tsx scripts/seed-from-duckdb.ts")
+        print("   -> To repair existing SQLite links, use: python3 scripts/repair_dld_project_links.py")
+        print("   -> To override this safety gate: pass --force-unsafe-legacy-run")
+        sys.exit(1)
+
     print(f"🚀 Starting DLD Sync from DuckDB ({DUCKDB_PATH}) -> SQLite ({SQLITE_PATH})")
     duck = duckdb.connect(DUCKDB_PATH, read_only=True)
     sqlite = sqlite3.connect(SQLITE_PATH)

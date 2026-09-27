@@ -17,12 +17,29 @@ export interface QuarterSupplyBucket {
   projectsCount: number;
   totalUnits: number;
   isCollisionWindow: boolean;
+  isTargetQuarter?: boolean;
+  isHistorical?: boolean;
   projects: Array<{
     id: string;
     nameEn: string;
     progressPct: number | null;
     units: number | null;
+    developerName?: string | null;
+    status?: string | null;
   }>;
+}
+
+export interface CompetingCollisionItem {
+  id: string;
+  nameEn: string;
+  developerName: string | null;
+  expectedHandoverDate: string | null;
+  quarter: string;
+  constructionProgressPct: number | null;
+  totalUnitsReported: number | null;
+  status: string;
+  monthsDifference: number; // e.g. -2, 0, +3 months
+  delayRiskRating: "ON_TRACK" | "AT_RISK" | "HIGH_DELAY_RISK";
 }
 
 export interface CompetingSupplyAnalysis {
@@ -36,6 +53,16 @@ export interface CompetingSupplyAnalysis {
   supplyPressureRisk: "LOW_PRESSURE" | "MODERATE_PRESSURE" | "HIGH_COLLISION_RISK";
   supplyNotes: string;
   quarterlyTimeline: QuarterSupplyBucket[];
+  // Rich analytical fields for investor decisions
+  collisionProjects: CompetingCollisionItem[];
+  historicalUnitsDelivered: number;
+  futurePipelineUnits: number;
+  futureProjectsCount: number;
+  peakQuarter: string | null;
+  peakQuarterUnits: number;
+  absorptionMonthsEstimate: number;
+  resaleCompetitionScore: "LOW" | "MODERATE" | "HIGH";
+  rentalCompressionScore: "LOW" | "MODERATE" | "HIGH";
 }
 
 /**
@@ -69,8 +96,12 @@ export function evaluateCompetingSupply(
   let totalPipelineUnits = 0;
   let collisionProjects = 0;
   let collisionUnits = 0;
+  let historicalUnits = 0;
+  let futureUnits = 0;
+  let futureCount = 0;
 
   const bucketsMap = new Map<string, QuarterSupplyBucket>();
+  const collisionList: CompetingCollisionItem[] = [];
 
   for (const p of nearbyProjects) {
     if (p.id === targetProjectId) continue; // skip target itself
@@ -80,14 +111,48 @@ export function evaluateCompetingSupply(
 
     let isCollision = false;
     let quarter = "Unspecified";
+    let isHistorical = false;
 
     if (p.expectedHandoverDate) {
       const pDate = new Date(p.expectedHandoverDate).getTime();
       quarter = getYearQuarter(p.expectedHandoverDate);
+      isHistorical = quarter.localeCompare("2025-Q1") < 0 || p.status === "completed";
+
+      if (isHistorical) {
+        historicalUnits += units;
+      } else {
+        futureUnits += units;
+        futureCount++;
+      }
+
       if (pDate >= collisionStart && pDate <= collisionEnd) {
         isCollision = true;
         collisionProjects++;
         collisionUnits += units;
+
+        const monthsDiff = Math.round((pDate - targetDate) / (30.44 * 24 * 3600 * 1000));
+        
+        // Delay risk heuristic: based on progress vs time
+        let delayRisk: "ON_TRACK" | "AT_RISK" | "HIGH_DELAY_RISK" = "ON_TRACK";
+        const progress = p.constructionProgressPct ?? 0;
+        if (progress < 25) {
+          delayRisk = "HIGH_DELAY_RISK";
+        } else if (progress < 50) {
+          delayRisk = "AT_RISK";
+        }
+
+        collisionList.push({
+          id: p.id,
+          nameEn: p.nameEn,
+          developerName: p.developerName || null,
+          expectedHandoverDate: p.expectedHandoverDate,
+          quarter,
+          constructionProgressPct: p.constructionProgressPct,
+          totalUnitsReported: p.totalUnitsReported,
+          status: p.status,
+          monthsDifference: monthsDiff,
+          delayRiskRating: delayRisk,
+        });
       }
     }
 
@@ -97,6 +162,8 @@ export function evaluateCompetingSupply(
         projectsCount: 0,
         totalUnits: 0,
         isCollisionWindow: isCollision,
+        isTargetQuarter: quarter === targetQuarter,
+        isHistorical,
         projects: [],
       });
     }
@@ -105,11 +172,14 @@ export function evaluateCompetingSupply(
     bucket.projectsCount++;
     bucket.totalUnits += units;
     if (isCollision) bucket.isCollisionWindow = true;
+    if (quarter === targetQuarter) bucket.isTargetQuarter = true;
     bucket.projects.push({
       id: p.id,
       nameEn: p.nameEn,
       progressPct: p.constructionProgressPct,
       units: p.totalUnitsReported,
+      developerName: p.developerName,
+      status: p.status,
     });
   }
 
@@ -119,6 +189,19 @@ export function evaluateCompetingSupply(
     if (b.quarter === "Unspecified") return -1;
     return a.quarter.localeCompare(b.quarter);
   });
+
+  // Find peak future quarter
+  let peakQuarter: string | null = null;
+  let peakUnits = 0;
+  for (const b of quarterlyTimeline) {
+    if (!b.isHistorical && b.quarter !== "Unspecified" && b.totalUnits > peakUnits) {
+      peakUnits = b.totalUnits;
+      peakQuarter = b.quarter;
+    }
+  }
+
+  // Sort collision projects by handover date
+  collisionList.sort((a, b) => (a.expectedHandoverDate || "").localeCompare(b.expectedHandoverDate || ""));
 
   // Risk rating
   let risk: CompetingSupplyAnalysis["supplyPressureRisk"] = "LOW_PRESSURE";
@@ -135,6 +218,13 @@ export function evaluateCompetingSupply(
     notes = `Favorable supply dynamics: only ${collisionProjects} competing handover(s) in the target delivery window. Minimal direct handover collision.`;
   }
 
+  // Absorption and score estimates (assuming ~150 units/quarter average absorption in prime cluster)
+  const absorptionMonths = Math.max(1, Math.min(12, Math.round((collisionUnits / 150) * 3)));
+  const resaleCompetitionScore: "LOW" | "MODERATE" | "HIGH" =
+    collisionUnits >= 1000 ? "HIGH" : collisionUnits >= 350 ? "MODERATE" : "LOW";
+  const rentalCompressionScore: "LOW" | "MODERATE" | "HIGH" =
+    collisionUnits >= 1200 ? "HIGH" : collisionUnits >= 400 ? "MODERATE" : "LOW";
+
   return {
     targetProjectId,
     targetHandoverDate: targetHandoverDateStr,
@@ -146,5 +236,14 @@ export function evaluateCompetingSupply(
     supplyPressureRisk: risk,
     supplyNotes: notes,
     quarterlyTimeline,
+    collisionProjects: collisionList,
+    historicalUnitsDelivered: historicalUnits,
+    futurePipelineUnits: futureUnits,
+    futureProjectsCount: futureCount,
+    peakQuarter,
+    peakQuarterUnits: peakUnits,
+    absorptionMonthsEstimate: absorptionMonths,
+    resaleCompetitionScore,
+    rentalCompressionScore,
   };
 }

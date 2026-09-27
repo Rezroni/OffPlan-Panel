@@ -25,10 +25,11 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const data = await getDeveloperById(id);
+  const name = data
+    ? data.developer.displayName || data.developer.brandName || data.developer.legalName
+    : "Developer Not Found";
   return {
-    title: data
-      ? `${data.developer.brandName || data.developer.legalName} Track Record — Dubai Off-plan Desk`
-      : "Developer Not Found",
+    title: `${name} Track Record — Dubai Off-plan Desk`,
   };
 }
 
@@ -41,6 +42,7 @@ export default async function DeveloperDetailPage({ params }: Props) {
   }
 
   const { developer, trackRecord } = data;
+  const displayName = developer.displayName || developer.brandName || developer.legalName;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-sky-500/20 selection:text-sky-900">
@@ -65,7 +67,7 @@ export default async function DeveloperDetailPage({ params }: Props) {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-                  {developer.brandName || developer.legalName}
+                  {displayName}
                 </h1>
                 <p className="text-xs text-slate-500 mt-1">
                   Legal Entity: <span className="text-slate-800 font-semibold">{developer.legalName}</span>

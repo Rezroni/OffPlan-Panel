@@ -19,6 +19,10 @@ export interface BuildingShare {
   count: number;
   sharePct: number;
   medianPsf: Decimal | null;
+  medianPriceAed?: Decimal | null;
+  medianAreaSqft?: Decimal | null;
+  minPsf?: Decimal | null;
+  maxPsf?: Decimal | null;
 }
 
 export interface CMAGroupStats {
@@ -31,6 +35,12 @@ export interface CMAGroupStats {
   p25Psf: Decimal | null;
   p75Psf: Decimal | null;
   iqrPsf: Decimal | null;
+  medianPriceAed?: Decimal | null;
+  p25PriceAed?: Decimal | null;
+  p75PriceAed?: Decimal | null;
+  medianAreaSqft?: Decimal | null;
+  minPsf?: Decimal | null;
+  maxPsf?: Decimal | null;
   reliability: CMASampleReliability;
   reliabilityNote: string;
   buildingBreakdown: BuildingShare[];
@@ -41,11 +51,14 @@ export interface CMAResult {
   targetPsf: Decimal;
   targetPrice: Decimal;
   targetAreaSqft: Decimal;
+  targetUnitLabel?: string;
+  targetPriceSource?: "net" | "list" | "custom" | "fallback";
   readyGroup: CMAGroupStats;
   offPlanGroup: CMAGroupStats;
   nearHandoverGroup: CMAGroupStats;
   gapToReadyPercent: Decimal | null;
   gapToOffPlanPercent: Decimal | null;
+  gapToNearHandoverPercent?: Decimal | null;
   editorialConclusion: string;
 }
 
@@ -88,13 +101,28 @@ export function buildGroupStats(
   const count = transactions.length;
   const buildingCounts = new Map<string, number>();
   const buildingPsfs = new Map<string, number[]>();
+  const buildingPrices = new Map<string, number[]>();
+  const buildingAreas = new Map<string, number[]>();
 
   for (const t of transactions) {
     const bName = t.buildingName || "Unknown Building";
     buildingCounts.set(bName, (buildingCounts.get(bName) || 0) + 1);
-    const existing = buildingPsfs.get(bName) || [];
-    existing.push(t.pricePerSqftAED);
-    buildingPsfs.set(bName, existing);
+
+    const existingPsfs = buildingPsfs.get(bName) || [];
+    existingPsfs.push(t.pricePerSqftAED);
+    buildingPsfs.set(bName, existingPsfs);
+
+    if (t.salePriceAED && t.salePriceAED > 0) {
+      const existingPrices = buildingPrices.get(bName) || [];
+      existingPrices.push(t.salePriceAED);
+      buildingPrices.set(bName, existingPrices);
+    }
+
+    if (t.areaSqft && t.areaSqft > 0) {
+      const existingAreas = buildingAreas.get(bName) || [];
+      existingAreas.push(t.areaSqft);
+      buildingAreas.set(bName, existingAreas);
+    }
   }
 
   const distinctBuildings = buildingCounts.size;
@@ -107,12 +135,24 @@ export function buildGroupStats(
       maxCount = bCnt;
       dominantBuildingName = bName;
     }
-    const bDist = calculateDistribution(buildingPsfs.get(bName) || []);
+    const bPsfList = buildingPsfs.get(bName) || [];
+    const bDist = calculateDistribution(bPsfList);
+    const bPriceDist = calculateDistribution(buildingPrices.get(bName) || []);
+    const bAreaDist = calculateDistribution(buildingAreas.get(bName) || []);
+
+    const sortedBPsfs = [...bPsfList].sort((a, b) => a - b);
+    const minPsf = sortedBPsfs.length > 0 ? new Decimal(sortedBPsfs[0]) : null;
+    const maxPsf = sortedBPsfs.length > 0 ? new Decimal(sortedBPsfs[sortedBPsfs.length - 1]) : null;
+
     buildingBreakdown.push({
       buildingName: bName,
       count: bCnt,
       sharePct: count > 0 ? Math.round((bCnt / count) * 1000) / 10 : 0,
       medianPsf: bDist.median,
+      medianPriceAed: bPriceDist.median,
+      medianAreaSqft: bAreaDist.median,
+      minPsf,
+      maxPsf,
     });
   }
 
@@ -120,7 +160,14 @@ export function buildGroupStats(
   buildingBreakdown.sort((a, b) => b.count - a.count);
 
   const maxBuildingSharePct = count > 0 ? Math.round((maxCount / count) * 1000) / 10 : 0;
-  const dist = calculateDistribution(transactions.map((t) => t.pricePerSqftAED));
+  const allPsfs = transactions.map((t) => t.pricePerSqftAED);
+  const dist = calculateDistribution(allPsfs);
+  const priceDist = calculateDistribution(transactions.map((t) => t.salePriceAED).filter((p) => p > 0));
+  const areaDist = calculateDistribution(transactions.map((t) => t.areaSqft).filter((a) => a > 0));
+
+  const sortedAllPsfs = [...allPsfs].sort((a, b) => a - b);
+  const minPsf = sortedAllPsfs.length > 0 ? new Decimal(sortedAllPsfs[0]) : null;
+  const maxPsf = sortedAllPsfs.length > 0 ? new Decimal(sortedAllPsfs[sortedAllPsfs.length - 1]) : null;
 
   let reliability: CMASampleReliability = "INSUFFICIENT";
   let reliabilityNote = "Insufficient sample (<5 transactions). Comparative gap headline is blocked.";
@@ -146,6 +193,12 @@ export function buildGroupStats(
     p25Psf: dist.p25,
     p75Psf: dist.p75,
     iqrPsf: dist.iqr,
+    medianPriceAed: priceDist.median,
+    p25PriceAed: priceDist.p25,
+    p75PriceAed: priceDist.p75,
+    medianAreaSqft: areaDist.median,
+    minPsf,
+    maxPsf,
     reliability,
     reliabilityNote,
     buildingBreakdown,
@@ -169,7 +222,11 @@ export function buildComparableSet(
   targetAreaSqft: number | string | Decimal,
   readyTransactions: TransactionFact[],
   offPlanTransactions: TransactionFact[],
-  nearHandoverTransactions: TransactionFact[] = []
+  nearHandoverTransactions: TransactionFact[] = [],
+  meta?: {
+    targetUnitLabel?: string;
+    targetPriceSource?: "net" | "list" | "custom" | "fallback";
+  }
 ): CMAResult {
   const targetPrice = toDecimal(targetPriceAED);
   const targetArea = toDecimal(targetAreaSqft);
@@ -201,15 +258,24 @@ export function buildComparableSet(
     gapToOffPlan = new Decimal(1).minus(targetPsf.dividedBy(offPlanGroup.medianPsf)).times(100);
   }
 
+  // Gap to near-handover: 1 - target_psf / nearHandover_median_psf
+  let gapToNearHandover: Decimal | null = null;
+  if (nearHandoverGroup.medianPsf && !nearHandoverGroup.medianPsf.isZero() && nearHandoverGroup.reliability !== "INSUFFICIENT") {
+    gapToNearHandover = new Decimal(1).minus(targetPsf.dividedBy(nearHandoverGroup.medianPsf)).times(100);
+  }
+
   return {
     targetPsf,
     targetPrice,
     targetAreaSqft: targetArea,
+    targetUnitLabel: meta?.targetUnitLabel,
+    targetPriceSource: meta?.targetPriceSource,
     readyGroup,
     offPlanGroup,
     nearHandoverGroup,
     gapToReadyPercent: gapToReady,
     gapToOffPlanPercent: gapToOffPlan,
+    gapToNearHandoverPercent: gapToNearHandover,
     editorialConclusion: conclusion,
   };
 }

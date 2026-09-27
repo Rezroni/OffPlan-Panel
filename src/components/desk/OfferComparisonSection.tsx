@@ -223,33 +223,40 @@ export function OfferComparisonSection({
               {/* Status Badges Row */}
               <div className="grid grid-cols-2 gap-3 my-4">
                 {/* Solvency Status */}
-                <div
-                  className={`p-3 rounded-xl border flex items-center space-x-2.5 text-xs transition-all ${
-                    fundingRes.status === "PASSED"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      : fundingRes.status === "NOT_SUITABLE"
-                      ? "bg-rose-50 text-rose-800 border-rose-200"
-                      : "bg-amber-50 text-amber-800 border-amber-200"
-                  }`}
-                >
-                  {fundingRes.status === "PASSED" ? (
-                    <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-                  ) : (
-                    <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
-                  )}
-                  <div className="truncate">
-                    <div className="font-bold text-[11px] uppercase tracking-wider">
-                      Solvency: {fundingRes.status}
+                {(() => {
+                  const isFlipStrategy = client.strategy === "flip";
+                  const isFlipPassed = fundingRes.flipStatus === "PASSED";
+                  const isFullPassed = fundingRes.status === "PASSED";
+
+                  let badgeBg = "bg-rose-50 text-rose-800 border-rose-200";
+                  let badgeTitle = `Solvency: ${fundingRes.status}`;
+                  let badgeSubtitle = fundingRes.deficitDate ? `Deficit on ${fundingRes.deficitDate}` : fundingRes.statusReason;
+                  let icon = <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />;
+
+                  if (isFullPassed) {
+                    badgeBg = "bg-emerald-50 text-emerald-800 border-emerald-200";
+                    badgeTitle = "Solvency: 100% Passed";
+                    badgeSubtitle = `Headroom: ${formatAED(fundingRes.minHeadroom)}`;
+                    icon = <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />;
+                  } else if (isFlipStrategy && isFlipPassed) {
+                    badgeBg = "bg-emerald-50 text-emerald-800 border-emerald-200";
+                    badgeTitle = "Flip Plan: Solvent";
+                    badgeSubtitle = `+${formatAED(fundingRes.flipMinHeadroom)} surplus (Stress: ${formatAED(fundingRes.minHeadroom)})`;
+                    icon = <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />;
+                  }
+
+                  return (
+                    <div className={`p-3 rounded-xl border flex items-center space-x-2.5 text-xs transition-all ${badgeBg}`}>
+                      {icon}
+                      <div className="truncate">
+                        <div className="font-bold text-[11px] uppercase tracking-wider">{badgeTitle}</div>
+                        <div className="text-[10px] opacity-90 truncate font-mono mt-0.5 font-semibold">
+                          {badgeSubtitle}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[10px] opacity-90 truncate font-mono mt-0.5 font-semibold">
-                      {fundingRes.status === "PASSED"
-                        ? `Headroom: ${formatAED(fundingRes.minHeadroom)}`
-                        : fundingRes.deficitDate
-                        ? `Deficit on ${fundingRes.deficitDate}`
-                        : fundingRes.statusReason}
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* Transfer / NOC Status */}
                 <div

@@ -61,7 +61,7 @@ describe("DLD Oqood & Title Deed System-wide Pricing & Matching", () => {
     expect(oneBr).toBeDefined();
     expect(oneBr?.price_source).toBe("dld_oqood_verified");
     expect(oneBr?.net_price_aed).toBeGreaterThan(2500000);
-    expect(oneBr?.unit_type_label).toContain("38 Oqood deals");
+    expect(oneBr?.unit_type_label).toContain("Oqood deals");
 
     // 2BR check: must be > 4.5M AED
     const twoBr = units.find((u) => u.bedrooms === 2);

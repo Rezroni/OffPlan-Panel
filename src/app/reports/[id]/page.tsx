@@ -42,10 +42,11 @@ export default async function ReportSnapshotPage({ params, searchParams }: Props
   }
 
   const isPrintMode = print === "true" || print === "1";
+  const serializedSnapshot = JSON.parse(JSON.stringify(snapshot));
 
   return (
     <ReportDossierView
-      snapshot={snapshot}
+      snapshot={serializedSnapshot}
       isPrintMode={isPrintMode}
     />
   );

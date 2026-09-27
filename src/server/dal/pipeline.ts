@@ -30,8 +30,7 @@ export async function getClusterPipelineAnalysis(
 
   const targetHandover = target.expectedHandoverDate || "2028-12-01";
 
-  // Find nearby projects in same area
-  let nearbyRows: Array<{
+  type NearbyProjectRow = {
     id: string;
     nameEn: string;
     expectedHandoverDate: string | null;
@@ -39,8 +38,11 @@ export async function getClusterPipelineAnalysis(
     totalUnitsReported: number | null;
     status: string | null;
     areaNameEn: string | null;
-    developerName: string | null;
-  }> = [];
+    developerLegal: string | null;
+    developerBrand: string | null;
+  };
+
+  let nearbyRows: NearbyProjectRow[] = [];
 
   if (target.areaId) {
     nearbyRows = await db
@@ -52,7 +54,8 @@ export async function getClusterPipelineAnalysis(
         totalUnitsReported: projects.totalUnitsReported,
         status: projects.status,
         areaNameEn: areas.nameEn,
-        developerName: developers.legalName,
+        developerLegal: developers.legalName,
+        developerBrand: developers.brandName,
       })
       .from(projects)
       .leftJoin(areas, eq(projects.areaId, areas.id))
@@ -71,7 +74,8 @@ export async function getClusterPipelineAnalysis(
         totalUnitsReported: projects.totalUnitsReported,
         status: projects.status,
         areaNameEn: areas.nameEn,
-        developerName: developers.legalName,
+        developerLegal: developers.legalName,
+        developerBrand: developers.brandName,
       })
       .from(projects)
       .leftJoin(areas, eq(projects.areaId, areas.id))
@@ -91,7 +95,7 @@ export async function getClusterPipelineAnalysis(
     id: r.id,
     nameEn: r.nameEn,
     areaNameEn: r.areaNameEn,
-    developerName: r.developerName,
+    developerName: r.developerBrand || r.developerLegal || "Dubai Developer",
     expectedHandoverDate: r.expectedHandoverDate,
     constructionProgressPct: r.constructionProgressPct,
     totalUnitsReported: r.totalUnitsReported,

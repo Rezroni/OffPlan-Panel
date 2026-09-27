@@ -14,9 +14,11 @@ interface ClientBriefSectionProps {
     strategy: "flip" | "rental";
   };
   onChange: (updated: any) => void;
+  deficitAmount?: number;
+  onQuickFixCash?: (amount: number) => void;
 }
 
-export function ClientBriefSection({ client, onChange }: ClientBriefSectionProps) {
+export function ClientBriefSection({ client, onChange, deficitAmount = 0, onQuickFixCash }: ClientBriefSectionProps) {
   const [newInflowDate, setNewInflowDate] = useState("");
   const [newInflowAmount, setNewInflowAmount] = useState("");
   const [newInflowLabel, setNewInflowLabel] = useState("");
@@ -107,8 +109,8 @@ export function ClientBriefSection({ client, onChange }: ClientBriefSectionProps
 
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
-            <span>Target Budget</span>
-            <span className="text-[10px] text-slate-500 font-mono">Max Acquisition</span>
+            <span>Target Budget (Лимит цены)</span>
+            <span className="text-[10px] text-slate-500 font-mono">Max Property Cap</span>
           </label>
           <div className="relative">
             <input
@@ -119,6 +121,9 @@ export function ClientBriefSection({ client, onChange }: ClientBriefSectionProps
             />
             <span className="absolute right-3.5 top-2.5 text-[10px] font-bold text-slate-400 uppercase">AED</span>
           </div>
+          <p className="text-[10px] text-slate-500 leading-tight">
+            *Предельная цена объекта для поиска. Платёжеспособность рассчитывается не по ней, а по реальному капиталу ниже.
+          </p>
         </div>
 
         <div className="space-y-1.5">
@@ -135,6 +140,9 @@ export function ClientBriefSection({ client, onChange }: ClientBriefSectionProps
             />
             <span className="absolute right-3.5 top-2.5 text-[10px] font-bold text-emerald-600 uppercase">AED</span>
           </div>
+          <p className="text-[10px] text-emerald-700 leading-tight">
+            *Реальные деньги на счете инвестора на дату бронирования (Day 0).
+          </p>
         </div>
 
         <div className="space-y-1.5">
@@ -151,8 +159,30 @@ export function ClientBriefSection({ client, onChange }: ClientBriefSectionProps
             />
             <span className="absolute right-3.5 top-2.5 text-[10px] font-bold text-amber-600 uppercase">AED</span>
           </div>
+          <p className="text-[10px] text-amber-700 leading-tight">
+            *Неприкосновенная подушка безопасности, которую нельзя тратить.
+          </p>
         </div>
       </div>
+
+      {/* Deficit Quick-Fix Banner (if applicable) */}
+      {deficitAmount > 0 && onQuickFixCash && (
+        <div className="mt-4 p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-amber-900">
+            <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>
+              При 100% выкупе на сдаче не хватает <strong className="font-mono text-amber-950 font-bold">{formatAED(deficitAmount)}</strong> для сохранения резервного буфера ({formatAED(client.requiredReserve)}).
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onQuickFixCash(deficitAmount)}
+            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold rounded-lg text-xs transition-all shrink-0 shadow-sm"
+          >
+            + Пополнить кэш на {formatAED(deficitAmount)}
+          </button>
+        </div>
+      )}
 
       {/* Summary KPI Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-5 p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
@@ -167,9 +197,9 @@ export function ClientBriefSection({ client, onChange }: ClientBriefSectionProps
           </span>
         </div>
         <div className="flex items-center justify-between px-3 border-t sm:border-t-0 sm:border-l border-slate-200/80 pt-2 sm:pt-0">
-          <span className="text-xs text-slate-500 font-medium">Solvency Hard Gate:</span>
-          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Active Check
+          <span className="text-xs text-slate-500 font-medium">Solvency Gate Focus:</span>
+          <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200">
+            {client.strategy === "flip" ? "Pre-Handover Resale" : "100% Handover Cash"}
           </span>
         </div>
       </div>

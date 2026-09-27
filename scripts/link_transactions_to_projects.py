@@ -21,7 +21,28 @@ def normalize_name(s: str) -> str:
     cleaned = re.sub(r'[^a-zA-Z0-9\s]', ' ', s.lower())
     return " ".join(cleaned.split())
 
+# ==============================================================================
+# RETIRED / DEPRECATED SCRIPT (Phase 0 Data Contract Remediation - ADR 011, P0-04)
+# ==============================================================================
+# This script has been retired because:
+# 1. P0-04: Line 21 stripped all non-ASCII letters, wiping out Arabic Unicode
+#    and collapsing project names to lone numbers (e.g. "5" colliding 30 projects).
+# 2. Lines 51 and 59 overwrote duplicate dictionary keys, silently resolving
+#    ambiguous identities and assigning false project links.
+#
+# SAFE REPLACEMENT:
+# Use scripts/repair_dld_project_links.py which preserves Unicode, detects
+# duplicates, queues ambiguous matches into match_queue, and never forces unsafe links.
+# ==============================================================================
+
 def main():
+    if "--force-unsafe-legacy-run" not in sys.argv:
+        print("❌ ERROR: scripts/link_transactions_to_projects.py is RETIRED under ADR 011 (P0-04).")
+        print("   This script performs unsafe ASCII-only regex normalization and false auto-matching.")
+        print("   -> To repair links safely, use: python3 scripts/repair_dld_project_links.py")
+        print("   -> To override this safety gate: pass --force-unsafe-legacy-run")
+        sys.exit(1)
+
     print(f"Connecting to database: {DB_PATH}")
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()

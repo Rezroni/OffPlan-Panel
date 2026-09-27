@@ -44,13 +44,48 @@ export const ingestionRuns = sqliteTable("ingestion_run", {
   completedAt: text("completed_at"),
   recordsFetched: integer("records_fetched"),
   recordsInserted: integer("records_inserted"),
+  recordsUpdated: integer("records_updated"),
   recordsSkipped: integer("records_skipped"),
+  recordsQuarantined: integer("records_quarantined"),
   errorMessage: text("error_message"),
   filterParams: text("filter_params"),     // JSON: {from, to, districts, ...}
   checksum: text("checksum"),
 }, (t) => [
   index("idx_ingestion_source").on(t.sourceConnectionId),
   index("idx_ingestion_status").on(t.status),
+]);
+
+export const sourceRecordRevisions = sqliteTable("source_record_revision", {
+  id: text("id").primaryKey(),
+  sourceConnectionId: text("source_connection_id").notNull()
+    .references(() => sourceConnections.id),
+  sourceRunId: text("source_run_id").references(() => ingestionRuns.id),
+  recordType: text("record_type").notNull(), // "transaction" | "rent_contract" | "service_charge"
+  sourceRecordId: text("source_record_id").notNull(),
+  revisionNo: integer("revision_no").notNull().default(1),
+  rawPayload: text("raw_payload").notNull(),
+  payloadChecksum: text("payload_checksum").notNull(),
+  changeType: text("change_type").notNull(), // "insert" | "correction" | "superseded"
+  recordedAt: text("recorded_at").notNull().default(sql`(datetime('now'))`),
+}, (t) => [
+  index("idx_src_rev_record").on(t.recordType, t.sourceRecordId),
+  index("idx_src_rev_run").on(t.sourceRunId),
+  index("idx_src_rev_checksum").on(t.payloadChecksum),
+  uniqueIndex("idx_src_rev_unique").on(t.sourceConnectionId, t.recordType, t.sourceRecordId, t.revisionNo),
+]);
+
+export const quarantinedRecords = sqliteTable("quarantined_record", {
+  id: text("id").primaryKey(),
+  sourceConnectionId: text("source_connection_id").notNull()
+    .references(() => sourceConnections.id),
+  sourceRunId: text("source_run_id").references(() => ingestionRuns.id),
+  recordType: text("record_type").notNull(),
+  rawPayload: text("raw_payload").notNull(),
+  rejectionReason: text("rejection_reason").notNull(),
+  quarantinedAt: text("quarantined_at").notNull().default(sql`(datetime('now'))`),
+}, (t) => [
+  index("idx_quarantine_run").on(t.sourceRunId),
+  index("idx_quarantine_type").on(t.recordType),
 ]);
 
 // ---------------------------------------------------------------------------
@@ -109,6 +144,8 @@ export const projects = sqliteTable("project", {
   // Research status
   researchStatus: text("research_status").notNull().default("discovered"),
   // "discovered" | "mapped" | "analysed" | "editorial_reviewed" | "content_ready"
+  propertyType: text("property_type").default("apartment"), // "apartment" | "villa" | "both" | "land"
+  dldProjectNumber: text("dld_project_number"), // e.g. "3416", "3859", "4430"
   masterDeveloperName: text("master_developer_name"),
   operatingDeveloperName: text("operating_developer_name"),
   sourceRunId: text("source_run_id").references(() => ingestionRuns.id),
@@ -118,6 +155,8 @@ export const projects = sqliteTable("project", {
   index("idx_project_developer").on(t.developerId),
   index("idx_project_area").on(t.areaId),
   index("idx_project_dld_id").on(t.dldProjectId),
+  index("idx_project_dld_number").on(t.dldProjectNumber),
+  index("idx_project_property_type").on(t.propertyType),
   index("idx_project_status").on(t.status),
 ]);
 
@@ -213,6 +252,7 @@ export const transactionFacts = sqliteTable("transaction_fact", {
   // Flags — populated during normalization
   isOffPlan: integer("is_off_plan", { mode: "boolean" }),    // null = uncertain
   isResidential: integer("is_residential", { mode: "boolean" }),
+  isApartmentEligible: integer("is_apartment_eligible", { mode: "boolean" }),
   isExcluded: integer("is_excluded", { mode: "boolean" }).default(false),
   exclusionReason: text("exclusion_reason"),
   // Matched to catalog
@@ -225,6 +265,7 @@ export const transactionFacts = sqliteTable("transaction_fact", {
   index("idx_tx_project_dld").on(t.dldProjectId),
   index("idx_tx_matched_project").on(t.matchedProjectId),
   index("idx_tx_bedrooms_date").on(t.bedrooms, t.transactionDate),
+  index("idx_tx_apt_metrics").on(t.isApartmentEligible, t.isOffPlan, t.areaNameEn, t.bedrooms, t.transactionDate),
 ]);
 
 export const rentContractFacts = sqliteTable("rent_contract_fact", {
@@ -240,7 +281,10 @@ export const rentContractFacts = sqliteTable("rent_contract_fact", {
   bedrooms: integer("bedrooms"),
   areaSqm: real("area_sqm"),
   areaSqft: real("area_sqft"),
-  annualRentAed: integer("annual_rent_aed"),
+  annualRentAed: real("annual_rent_aed"),           // Explicit AED precision policy: preserves decimal amounts without float loss
+  propertyUsage: text("property_usage"),
+  isResidential: integer("is_residential", { mode: "boolean" }),
+  isApartmentEligible: integer("is_apartment_eligible", { mode: "boolean" }),
   isMultiProperty: integer("is_multi_property", { mode: "boolean" }), // Multi-property contracts excluded from per-unit metrics
   isExcluded: integer("is_excluded", { mode: "boolean" }).default(false),
   exclusionReason: text("exclusion_reason"),
@@ -264,6 +308,8 @@ export const serviceChargeFacts = sqliteTable("service_charge_fact", {
   chargeCategory: text("charge_category"),
   matchedProjectId: text("matched_project_id").references(() => projects.id),
   matchedBuildingId: text("matched_building_id").references(() => buildings.id),
+  rawServiceCost: real("raw_service_cost"),
+  rawServiceCostUnit: text("raw_service_cost_unit").default("unknown"),
 }, (t) => [
   index("idx_sc_year").on(t.year),
   index("idx_sc_matched_project").on(t.matchedProjectId),

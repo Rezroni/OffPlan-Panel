@@ -8,6 +8,13 @@
       "when": 1790265476352,
       "tag": "0000_narrow_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790428314519,
+      "tag": "0001_phase0_dld_contract_audit",
+      "breakpoints": true
     }
   ]
 }

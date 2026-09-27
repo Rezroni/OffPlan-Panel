@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
           p.escrow_bank_name as escrowBankName,
           p.escrow_status as escrowStatus,
           p.total_units_reported as totalUnitsReported,
-          coalesce(d.brand_name, d.legal_name, 'Developer') as developerName,
+          coalesce(nullif(d.brand_name, ''), nullif(d.legal_name, ''), 'Developer') as developerName,
           coalesce(a.name_en, 'Dubai') as areaName,
           a.id as areaId
         FROM project p
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
             transaction_date as transactionDate, 
             0 as isOffPlan
           FROM transaction_fact
-          WHERE area_name_en = ? AND is_off_plan = 0 AND is_excluded = 0 AND is_residential = 1
+          WHERE area_name_en = ? AND is_off_plan = 0 AND is_excluded = 0 AND is_apartment_eligible = 1
           ORDER BY transaction_date DESC
           LIMIT 25
         `).all(project.areaName);
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
             transaction_date as transactionDate, 
             0 as isOffPlan
           FROM transaction_fact
-          WHERE is_off_plan = 0 AND is_excluded = 0 AND is_residential = 1 AND price_per_sqft_aed > 1200
+          WHERE is_off_plan = 0 AND is_excluded = 0 AND is_apartment_eligible = 1 AND price_per_sqft_aed > 1200
           ORDER BY transaction_date DESC
           LIMIT 20
         `).all();
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
         p.status,
         p.expected_handover_date as expectedHandoverDate,
         p.construction_progress_pct as constructionProgressPct,
-        coalesce(d.brand_name, d.legal_name, 'Developer') as developerName,
+        coalesce(nullif(d.brand_name, ''), nullif(d.legal_name, ''), 'Developer') as developerName,
         coalesce(a.name_en, 'Dubai') as areaName,
         min(u.list_price_aed) as minPriceAed,
         max(u.list_price_aed) as maxPriceAed,

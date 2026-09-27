@@ -54,27 +54,27 @@ export function PrintPreviewModal({ isOpen, onClose, offers, client }: PrintPrev
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white text-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-8 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white text-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-8 max-h-[92vh] flex flex-col border border-slate-200">
         {/* Modal Toolbar (hidden on print) */}
         <div className="bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between no-print border-b border-slate-800">
           <div className="flex items-center space-x-2">
             <span className="font-bold text-sm">Investor PDF Report &bull; Live Preview</span>
-            <span className="text-[11px] bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-semibold">
+            <span className="text-[11px] bg-sky-500/20 text-sky-300 border border-sky-400/30 px-2 py-0.5 rounded-full font-semibold">
               Immutable Snapshot v1.0
             </span>
           </div>
           <div className="flex items-center space-x-3">
             <button
               onClick={handlePrint}
-              className="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all"
+              className="flex items-center space-x-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-xs transition-all active:scale-95"
             >
               <Printer className="h-4 w-4" />
               <span>Print / Save as PDF</span>
             </button>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
             >
               <X className="h-5 w-5" />
             </button>

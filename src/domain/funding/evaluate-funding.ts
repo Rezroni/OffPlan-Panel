@@ -60,6 +60,13 @@ export interface FundingEvaluationResult {
   totalFees: Decimal;
   totalContributions: Decimal;
   timeline: TimelinePoint[];
+  // Extended dual-horizon solvency fields
+  flipStatus: FundingStatus;
+  flipMinHeadroom: Decimal;
+  flipCapitalNeeded: Decimal;
+  isHandoverDeficitOnly: boolean;
+  isReserveErosionOnly: boolean;
+  cashRemainingAtHandover: Decimal;
 }
 
 /**
@@ -103,6 +110,12 @@ export function evaluateFunding(
         totalFees: new Decimal(0),
         totalContributions: initialCash,
         timeline: [],
+        flipStatus: "NOT_SUITABLE",
+        flipMinHeadroom: initialCash.minus(reserve).minus(totalPaymentsExpected),
+        flipCapitalNeeded: totalPaymentsExpected,
+        isHandoverDeficitOnly: false,
+        isReserveErosionOnly: false,
+        cashRemainingAtHandover: initialCash.minus(totalPaymentsExpected),
       };
     }
   }
@@ -130,6 +143,12 @@ export function evaluateFunding(
         totalFees: new Decimal(0),
         totalContributions: new Decimal(0),
         timeline: [],
+        flipStatus: "INCOMPLETE",
+        flipMinHeadroom: new Decimal(0),
+        flipCapitalNeeded: new Decimal(0),
+        isHandoverDeficitOnly: false,
+        isReserveErosionOnly: false,
+        cashRemainingAtHandover: new Decimal(0),
       };
     }
     events.push({
@@ -153,6 +172,12 @@ export function evaluateFunding(
         totalFees: new Decimal(0),
         totalContributions: new Decimal(0),
         timeline: [],
+        flipStatus: "INCOMPLETE",
+        flipMinHeadroom: new Decimal(0),
+        flipCapitalNeeded: new Decimal(0),
+        isHandoverDeficitOnly: false,
+        isReserveErosionOnly: false,
+        cashRemainingAtHandover: new Decimal(0),
       };
     }
     // Apply stress delay if applicable to handover milestones
@@ -186,6 +211,9 @@ export function evaluateFunding(
   let cumPayment = new Decimal(0);
   let cumFee = new Decimal(0);
   let minHeadroom = initialCash.minus(reserve);
+  let flipMinHeadroom = initialCash.minus(reserve);
+  let flipCapitalNeeded = new Decimal(0);
+  let hasPreHandoverDeficit = false;
   let firstDeficitDate: string | null = null;
   let maxDeficitAmount = new Decimal(0);
 
@@ -196,8 +224,19 @@ export function evaluateFunding(
     if (ev.type === "payment") cumPayment = cumPayment.plus(ev.amount);
     if (ev.type === "fee") cumFee = cumFee.plus(ev.amount);
 
+    const isHandoverEvent = ev.description.toLowerCase().includes("handover");
     const headroom = cumInflow.minus(cumPayment).minus(cumFee).minus(reserve);
     const isDeficit = headroom.isNegative();
+
+    if (!isHandoverEvent) {
+      flipCapitalNeeded = cumPayment.plus(cumFee);
+      if (headroom.lessThan(flipMinHeadroom)) {
+        flipMinHeadroom = headroom;
+      }
+      if (isDeficit) {
+        hasPreHandoverDeficit = true;
+      }
+    }
 
     if (isDeficit) {
       if (!firstDeficitDate) firstDeficitDate = ev.date;
@@ -226,12 +265,23 @@ export function evaluateFunding(
   }
 
   const isFailed = minHeadroom.isNegative();
+  const isHandoverDeficitOnly = isFailed && !hasPreHandoverDeficit;
+  const cashRemainingAtHandover = cumInflow.minus(cumPayment).minus(cumFee);
+  const isReserveErosionOnly = isFailed && cashRemainingAtHandover.greaterThanOrEqualTo(0);
+  const flipStatus: FundingStatus = flipMinHeadroom.isNegative() ? "FAILED" : "PASSED";
+
+  let statusReason = "Solvency confirmed across all payment milestones with required liquidity reserve intact.";
+  if (isFailed) {
+    if (isHandoverDeficitOnly && isReserveErosionOnly) {
+      statusReason = `Developer payments are 100% covered (+${cashRemainingAtHandover.toString()} AED net surplus cash), but final handover milestone taps into the protected reserve buffer by ${maxDeficitAmount.toString()} AED. Pre-handover flip strategy has zero deficit (+${flipMinHeadroom.toString()} AED headroom).`;
+    } else {
+      statusReason = `Funding deficit detected on ${firstDeficitDate} of ${maxDeficitAmount.toString()} AED (minimum headroom ${minHeadroom.toString()} AED).`;
+    }
+  }
 
   return {
     status: isFailed ? "FAILED" : "PASSED",
-    statusReason: isFailed
-      ? `Funding deficit detected on ${firstDeficitDate} of ${maxDeficitAmount.toString()} AED (minimum headroom ${minHeadroom.toString()} AED)`
-      : "Solvency confirmed across all payment milestones with required liquidity reserve intact.",
+    statusReason,
     minHeadroom,
     deficitDate: firstDeficitDate,
     deficitAmount: isFailed ? maxDeficitAmount : null,
@@ -240,5 +290,11 @@ export function evaluateFunding(
     totalFees: cumFee,
     totalContributions: cumInflow,
     timeline,
+    flipStatus,
+    flipMinHeadroom,
+    flipCapitalNeeded,
+    isHandoverDeficitOnly,
+    isReserveErosionOnly,
+    cashRemainingAtHandover,
   };
 }

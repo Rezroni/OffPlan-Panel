@@ -92,7 +92,23 @@ def clean_title(title: str) -> str:
             cleaned.append(w.capitalize())
     return " ".join(cleaned)
 
+# ==============================================================================
+# RETIRED / DEPRECATED SCRIPT (Phase 0 Data Contract Remediation - ADR 011)
+# ==============================================================================
+# This script has been retired as an active ingestion pipeline to eliminate
+# transformation drift against the authoritative TypeScript adapter.
+#
+# AUTHORITATIVE PATH:
+# Use scripts/seed-from-duckdb.ts which implements the validated contract boundary.
+# ==============================================================================
+
 def main():
+    if "--force-unsafe-legacy-run" not in sys.argv:
+        print("❌ ERROR: scripts/seed_from_duckdb.py is RETIRED under ADR 011.")
+        print("   -> To run the authoritative ingestion path, use: npx tsx scripts/seed-from-duckdb.ts")
+        print("   -> To override this safety gate: pass --force-unsafe-legacy-run")
+        sys.exit(1)
+
     print(f"Connecting to DuckDB: {DUCKDB_PATH}")
     duck = duckdb.connect(DUCKDB_PATH)
     

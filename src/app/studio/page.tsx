@@ -107,29 +107,31 @@ export default async function StudioPage() {
     id: p.id,
     nameEn: p.nameEn,
     developerBrand: p.developerBrand,
+    areaName: p.areaNameEn,
+    expectedHandoverDate: p.expectedHandoverDate,
   }));
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-sky-500/20 selection:text-sky-900">
       <Header />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
         {/* Banner */}
-        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-800">
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-200">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1.5">
-                <Video className="h-3 w-3" />
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-sky-50 text-sky-800 border border-sky-200 flex items-center gap-1.5 shadow-2xs">
+                <Video className="h-3 w-3 text-sky-600" />
                 Section 16 &amp; 18 Compliance
               </span>
               <span className="text-xs text-slate-500 font-mono">
                 5-Stage Script Structure &bull; Whitelisted Metric Bindings &bull; Safe Area Overlays
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
               Dual RU/AR Content &amp; Reels Studio
             </h1>
-            <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+            <p className="text-sm text-slate-500 mt-1 max-w-2xl">
               Generate 45–75 second Reels scripts and export high-impact 1080x1920 data cards with identical verified figures in Russian and Arabic.
             </p>
           </div>

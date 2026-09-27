@@ -23,11 +23,14 @@ import {
 import type { DualReelsScript, StudioProjectFacts } from "@/domain/content/content-studio";
 import { SOCIAL_CARD_SPECS, SocialCardSpec } from "@/domain/content/content-studio";
 import { formatAED } from "@/lib/decimal";
+import { ProjectCombobox } from "./ProjectCombobox";
 
 interface ProjectOption {
   id: string;
   nameEn: string;
   developerBrand: string | null;
+  areaName?: string | null;
+  expectedHandoverDate?: string | null;
 }
 
 interface ReelsStudioClientProps {
@@ -118,38 +121,34 @@ export function ReelsStudioClient({
   return (
     <div className="space-y-8">
       {/* Top Controls Bar */}
-      <div className="luxury-card rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-7 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Project Selector */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full lg:w-auto">
-          <label className="text-xs text-slate-300 font-extrabold whitespace-nowrap">
+          <label className="text-xs text-slate-700 font-bold whitespace-nowrap">
             Target Project:
           </label>
-          <select
-            value={selectedProjectId}
-            onChange={(e) => handleProjectChange(e.target.value)}
+          <ProjectCombobox
+            selectedProjectId={selectedProjectId}
+            selectedProjectName={facts.projectNameEn}
+            selectedDeveloper={facts.developerBrand}
+            initialProjects={projects}
+            onSelectProject={handleProjectChange}
             disabled={loading}
-            className="bg-[#0C101C] border border-white/[0.09] rounded-2xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-400/40 w-full sm:w-80"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nameEn} ({p.developerBrand || "Dubai"})
-              </option>
-            ))}
-          </select>
-          {loading && <span className="text-xs text-amber-400 font-semibold animate-pulse">Loading DLD facts...</span>}
+          />
+          {loading && <span className="text-xs text-sky-600 font-semibold animate-pulse">Loading DLD facts...</span>}
         </div>
 
         {/* Global toggles and CTA */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Language Selector */}
-          <div className="flex items-center rounded-2xl bg-[#0C101C] p-1.5 border border-white/[0.08] text-xs">
+          <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs">
             <button
               type="button"
               onClick={() => setActiveLocale("ru")}
-              className={`px-4 py-1.5 rounded-xl font-extrabold transition-all duration-200 ${
+              className={`px-4 py-1.5 rounded-lg font-bold transition-all duration-150 ${
                 activeLocale === "ru"
-                  ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/25"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-sky-600 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               Русский (RU)
@@ -157,10 +156,10 @@ export function ReelsStudioClient({
             <button
               type="button"
               onClick={() => setActiveLocale("ar")}
-              className={`px-4 py-1.5 rounded-xl font-extrabold transition-all duration-200 ${
+              className={`px-4 py-1.5 rounded-lg font-bold transition-all duration-150 ${
                 activeLocale === "ar"
-                  ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/25"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-sky-600 text-white shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               العربية (AR)
@@ -172,7 +171,7 @@ export function ReelsStudioClient({
             type="button"
             onClick={handleCreateDossier}
             disabled={generatingDossier}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50"
           >
             <FileText className="h-4 w-4" />
             <span>
@@ -189,16 +188,16 @@ export function ReelsStudioClient({
         {/* ========================================================================= */}
         {/* LEFT COLUMN: 5-STAGE REELS SCRIPT GENERATOR (§16) */}
         {/* ========================================================================= */}
-        <div className="lg:col-span-7 luxury-card rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-5">
+        <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 space-y-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-5">
             <div>
               <div className="flex items-center gap-2">
-                <Video className="h-5 w-5 text-amber-400" />
-                <h2 className="text-lg font-black text-white">
+                <Video className="h-5 w-5 text-sky-600" />
+                <h2 className="text-lg font-bold text-slate-900">
                   {isRtl ? "سيناريو الفيديو (45–75 ثانية)" : "Сценарий Reels/Shorts (45–75 сек)"}
                 </h2>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 {isRtl
                   ? "مبني على 5 مراحل إلزامية مع ربط مباشر بالأرقام المعتمدة"
                   : "5 обязательных стадий согласно §16 с привязкой к метрикам DLD"}
@@ -208,16 +207,16 @@ export function ReelsStudioClient({
             <button
               type="button"
               onClick={handleCopyFullScript}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200 transition-colors shadow-2xs"
             >
               {copiedStage === 999 ? (
                 <>
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Скопировано!</span>
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  <span className="text-emerald-700 font-bold">Скопировано!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="h-3.5 w-3.5" />
+                  <Copy className="h-3.5 w-3.5 text-slate-500" />
                   <span>Копировать весь сценарий</span>
                 </>
               )}
@@ -229,29 +228,29 @@ export function ReelsStudioClient({
             {script.blocks.map((b) => (
               <div
                 key={b.stage}
-                className="bg-slate-950/70 border border-slate-800/80 hover:border-slate-700 rounded-2xl p-5 space-y-3 transition-colors relative group"
+                className="bg-slate-50/70 border border-slate-200/90 hover:border-slate-300 rounded-xl p-5 space-y-3 transition-colors relative group shadow-2xs"
               >
-                <div className="flex items-center justify-between gap-2 border-b border-slate-850 pb-2.5">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="h-6 w-6 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 font-bold text-xs flex items-center justify-center">
+                    <span className="h-6 w-6 rounded-lg bg-sky-100 border border-sky-200 text-sky-700 font-bold text-xs flex items-center justify-center">
                       {b.stage}
                     </span>
-                    <span className="text-xs font-bold text-slate-200">
+                    <span className="text-xs font-bold text-slate-900">
                       {isRtl ? b.titleAr : b.titleRu}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200/60">
                       {b.timingSeconds}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleCopyText(b.stage, isRtl ? b.textAr : b.textRu)}
-                      className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                      className="p-1 rounded hover:bg-slate-200/80 text-slate-400 hover:text-slate-700 transition-colors"
                       title="Копировать этап"
                     >
                       {copiedStage === b.stage ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
                       )}
@@ -260,18 +259,18 @@ export function ReelsStudioClient({
                 </div>
 
                 {/* Spoken Text */}
-                <p className="text-sm text-slate-100 leading-relaxed font-sans select-all">
+                <p className="text-sm text-slate-800 leading-relaxed font-sans select-all">
                   {isRtl ? b.textAr : b.textRu}
                 </p>
 
                 {/* Referenced Metric Badges (§16 Whitelist) */}
                 {b.referencedMetricIds.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-slate-500 font-mono">
-                    <span className="text-slate-600">Metric ID:</span>
+                    <span className="text-slate-500">Metric ID:</span>
                     {b.referencedMetricIds.map((mId) => (
                       <span
                         key={mId}
-                        className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-indigo-300"
+                        className="px-2 py-0.5 rounded bg-white border border-slate-200 text-sky-800 font-semibold shadow-2xs"
                       >
                         {mId}
                       </span>
@@ -286,27 +285,27 @@ export function ReelsStudioClient({
         {/* ========================================================================= */}
         {/* RIGHT COLUMN: SOCIAL DATA CARD LIVE PREVIEW (§16.2) */}
         {/* ========================================================================= */}
-        <div className="lg:col-span-5 luxury-card rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-white/[0.08] pb-5">
+        <div className="lg:col-span-5 bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 space-y-6 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-5">
             <div>
-              <h3 className="text-base font-black text-white flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-400" />
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-sky-600" />
                 Data Card Visualizer
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5 font-medium">
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">
                 1080×1920 (Reels) / 1080×1350 (Post)
               </p>
             </div>
 
             {/* Format toggle */}
-            <div className="flex items-center rounded-2xl bg-[#0C101C] p-1 border border-white/[0.08] text-[11px]">
+            <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-[11px]">
               <button
                 type="button"
                 onClick={() => setCardFormat("REELS_9_16")}
-                className={`px-3 py-1 rounded-xl font-bold transition-all ${
+                className={`px-3 py-1 rounded-lg font-bold transition-all ${
                   cardFormat === "REELS_9_16"
-                    ? "bg-amber-400 text-slate-950 font-extrabold shadow-sm"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-sky-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 9:16
@@ -314,10 +313,10 @@ export function ReelsStudioClient({
               <button
                 type="button"
                 onClick={() => setCardFormat("CAROUSEL_4_5")}
-                className={`px-3 py-1 rounded-xl font-bold transition-all ${
+                className={`px-3 py-1 rounded-lg font-bold transition-all ${
                   cardFormat === "CAROUSEL_4_5"
-                    ? "bg-amber-400 text-slate-950 font-extrabold shadow-sm"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-sky-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 4:5
@@ -326,13 +325,13 @@ export function ReelsStudioClient({
           </div>
 
           {/* Safe Area Switch */}
-          <div className="flex items-center justify-between text-xs text-slate-300 font-medium">
+          <div className="flex items-center justify-between text-xs text-slate-700 font-medium">
             <span>Show Safe Area Overlays</span>
             <input
               type="checkbox"
               checked={showSafeArea}
               onChange={(e) => setShowSafeArea(e.target.checked)}
-              className="rounded bg-[#0C101C] border-white/[0.1] text-amber-500 focus:ring-0 cursor-pointer w-4 h-4"
+              className="rounded border-slate-300 text-sky-600 focus:ring-0 cursor-pointer w-4 h-4"
             />
           </div>
 

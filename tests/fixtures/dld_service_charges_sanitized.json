@@ -1,0 +1,50 @@
+[
+  {
+    "_fixture_id": "sc_azizi_aura_insurance_2022",
+    "_description": "Real-shaped Mollak OA service charge record from open data sample",
+    "master_community_id": 122,
+    "master_community_name_en": "Downtown Jebel Ali",
+    "master_community_name_ar": "داون تاون دبل علي",
+    "property_group_id": 243048329,
+    "property_group_name_en": "Azizi Aura",
+    "property_group_name_ar": "عزيزي أورا",
+    "project_id": 83055243,
+    "project_name": "Azizi Aura Residences",
+    "usage_id": 5,
+    "usage_name_en": "Parking",
+    "budget_year": 2022,
+    "service_cost": 17.4,
+    "service_category_id": 7,
+    "service_category_name_en": "Insurance",
+    "management_company_id": 1437037,
+    "management_company_name_en": "V C M COMMUNITY MANAGEMENT"
+  },
+  {
+    "_fixture_id": "sc_cleaning_2023",
+    "_description": "Service charge cleaning category; verifies budget_year and composite identity",
+    "master_community_id": 122,
+    "master_community_name_en": "Downtown Jebel Ali",
+    "property_group_id": 243048329,
+    "property_group_name_en": "Azizi Aura",
+    "project_id": 83055243,
+    "project_name": "Azizi Aura Residences",
+    "usage_id": 1,
+    "usage_name_en": "Residential",
+    "budget_year": 2023,
+    "service_cost": 4.25,
+    "service_category_id": 2,
+    "service_category_name_en": "Cleaning Services",
+    "management_company_id": 1437037,
+    "management_company_name_en": "V C M COMMUNITY MANAGEMENT"
+  },
+  {
+    "_fixture_id": "sc_missing_composite_key_quarantined",
+    "_description": "Missing property_group_id or budget_year; must be quarantined without random UUID fallback",
+    "project_id": 83055243,
+    "property_group_id": null,
+    "budget_year": null,
+    "usage_id": 1,
+    "service_cost": 15.0,
+    "service_category_id": 3
+  }
+]

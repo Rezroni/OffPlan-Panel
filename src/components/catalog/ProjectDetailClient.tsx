@@ -24,13 +24,18 @@ import {
   Video,
   FileText,
   Landmark,
+  Lock,
 } from "lucide-react";
-import type { ProjectDetail } from "@/server/dal/catalog";
+import type { ProjectDetail, ProjectTransactionsResult } from "@/domain/catalog/types";
 import type { CMAResult } from "@/domain/cma/comparable-set";
 import type { CompetingSupplyAnalysis } from "@/domain/pipeline/competing-supply";
 import { FundingExitSimulator } from "@/components/funding/FundingExitSimulator";
 import { Header } from "@/components/desk/Header";
 import { CompetingSupplyPanel } from "@/components/pipeline/CompetingSupplyPanel";
+import { RecentTransactionsSection } from "@/components/catalog/RecentTransactionsSection";
+import { ResaleChainsSection } from "@/components/catalog/ResaleChainsSection";
+import { CmaSection } from "@/components/catalog/CmaSection";
+import type { ProjectResaleChainsResult } from "@/domain/catalog/types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,12 +54,20 @@ type UnitType = {
   priceAsOf: string | null;
   assignmentPolicy: string | null;
   minPaidPctForNoc: number | null;
+  firstPriceAed?: number | null;
+  firstDealDate?: string | null;
+  latestPriceAed?: number | null;
+  latestDealDate?: string | null;
+  dealCount?: number;
+  priceChangePct?: number | null;
 };
 
 type Props = {
   project: ProjectDetail;
   unitTypes: UnitType[];
   initialCma: CMAResult;
+  initialTransactions?: ProjectTransactionsResult | null;
+  initialResaleChains?: ProjectResaleChainsResult | null;
   pipelineAnalysis?: CompetingSupplyAnalysis | null;
 };
 
@@ -193,6 +206,8 @@ export default function ProjectDetailClient({
   project,
   unitTypes: initialUnits,
   initialCma,
+  initialTransactions,
+  initialResaleChains,
   pipelineAnalysis,
 }: Props) {
   const [units, setUnits] = useState<UnitType[]>(initialUnits);
@@ -201,12 +216,28 @@ export default function ProjectDetailClient({
   );
   const [cma, setCma] = useState<CMAResult>(initialCma);
   const [cmaLoading, setCmaLoading] = useState(false);
+  const [transactionsResult, setTransactionsResult] = useState<ProjectTransactionsResult | null>(
+    initialTransactions ?? null
+  );
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [syncingUnits, setSyncingUnits] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [generatingDossier, setGeneratingDossier] = useState(false);
 
   // Active selected unit
   const activeUnit = units.find((u) => u.id === selectedUnitId) || units[0];
+
+  const resaleChainsByBedroom = React.useMemo(() => {
+    const map: Record<number, number> = {};
+    if (initialResaleChains?.chains) {
+      for (const c of initialResaleChains.chains) {
+        if (c.bedrooms !== null && c.bedrooms !== undefined) {
+          map[c.bedrooms] = (map[c.bedrooms] || 0) + 1;
+        }
+      }
+    }
+    return map;
+  }, [initialResaleChains]);
 
   const handleGenerateDossier = async () => {
     try {
@@ -231,21 +262,40 @@ export default function ProjectDetailClient({
     }
   };
 
-  // Handle selecting a unit type -> immediately recalculate CMA
+  // Handle selecting a unit type -> immediately recalculate CMA & fetch recent transactions
   const handleSelectUnit = async (unit: UnitType) => {
     setSelectedUnitId(unit.id);
     const br = unit.bedrooms ?? 1;
+    const price = unit.netPriceAed || unit.listPriceAed;
+    const avgArea = unit.areaSqftMin && unit.areaSqftMax
+      ? Math.round((unit.areaSqftMin + unit.areaSqftMax) / 2)
+      : unit.areaSqftMin || unit.areaSqftMax;
+
     setCmaLoading(true);
+    setTransactionsLoading(true);
     try {
-      const res = await fetch(`/api/cma/${project.id}?bedrooms=${br}`);
-      if (res.ok) {
-        const json = await res.json();
+      let cmaUrl = `/api/cma/${project.id}?bedrooms=${br}`;
+      if (price && price > 0) cmaUrl += `&price=${price}`;
+      if (avgArea && avgArea > 0) cmaUrl += `&area=${avgArea}`;
+
+      const [cmaRes, txRes] = await Promise.all([
+        fetch(cmaUrl),
+        fetch(`/api/projects/${project.id}/transactions?bedrooms=${br}&limit=5`),
+      ]);
+
+      if (cmaRes.ok) {
+        const json = await cmaRes.json();
         setCma(json.cma);
       }
+      if (txRes.ok) {
+        const txJson = await txRes.json();
+        setTransactionsResult(txJson);
+      }
     } catch (err) {
-      console.error("Failed to update CMA:", err);
+      console.error("Failed to update CMA or transactions:", err);
     } finally {
       setCmaLoading(false);
+      setTransactionsLoading(false);
     }
   };
 
@@ -489,26 +539,78 @@ export default function ProjectDetailClient({
                     </div>
                   </div>
 
-                  {/* Details grid */}
-                  <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-100 pt-2.5">
-                    <div>
-                      <span className="text-slate-500 text-[11px] block">Size</span>
-                      <span className="text-slate-800 font-semibold font-mono">
-                        {formatSqft(ut.areaSqftMin, ut.areaSqftMax)}
-                      </span>
+                  {/* Details grid with First Oqood and Latest Deal Price */}
+                  <div className="space-y-2 border-t border-slate-100 pt-2.5 text-xs">
+                    {/* Row 1: Size & First Oqood Deal Price */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-500 text-[11px] block">Size</span>
+                        <span className="text-slate-800 font-semibold font-mono">
+                          {formatSqft(ut.areaSqftMin, ut.areaSqftMax)}
+                        </span>
+                      </div>
+                      <div title={formatFullAed(ut.firstPriceAed ?? ut.netPriceAed)}>
+                        <span className="text-slate-500 text-[11px] block truncate">
+                          {ut.priceSource === "dld_oqood_verified"
+                            ? "First Oqood Deal"
+                            : ut.priceSource === "dld_transaction"
+                            ? "First Registered Deal"
+                            : ut.priceSource === "developer_offer"
+                            ? "Developer List Price"
+                            : "Estimated Net Price"}
+                        </span>
+                        <span className="text-slate-900 font-bold font-mono cursor-help">
+                          {formatAed(ut.firstPriceAed ?? ut.netPriceAed)}
+                        </span>
+                      </div>
                     </div>
-                    <div title={formatFullAed(ut.netPriceAed)}>
-                      <span className="text-slate-500 text-[11px] block">
-                        {ut.priceSource === "dld_oqood_verified"
-                          ? "First Oqood Deal Price"
-                          : ut.priceSource === "developer_offer"
-                          ? "Developer List Price"
-                          : "Estimated Net Price"}
-                      </span>
-                      <span className="text-emerald-700 font-bold font-mono cursor-help">
-                        {formatAed(ut.netPriceAed)}
-                      </span>
+
+                    {/* Row 2: Latest Deal Price (Последняя цена продажи) */}
+                    <div className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/70 flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-slate-500 text-[10px] font-semibold uppercase tracking-wider block">
+                          Последняя цена продажи
+                        </span>
+                        <span className="text-emerald-700 font-bold font-mono text-sm">
+                          {formatAed(ut.latestPriceAed ?? ut.firstPriceAed ?? ut.netPriceAed)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        {ut.priceChangePct !== null && ut.priceChangePct !== undefined && ut.priceChangePct !== 0 ? (
+                          <span
+                            className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                              ut.priceChangePct > 0
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : "bg-rose-100 text-rose-800 border border-rose-200"
+                            }`}
+                          >
+                            {ut.priceChangePct > 0 ? `+${ut.priceChangePct}%` : `${ut.priceChangePct}%`}
+                          </span>
+                        ) : ut.dealCount && ut.dealCount > 0 ? (
+                          <span className="text-[10px] font-medium text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-md">
+                            {ut.dealCount === 1 ? "1 сделка" : `${ut.dealCount} сделок`}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">—</span>
+                        )}
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Resale Activity / 100% Hold indicator */}
+                  <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[11px]">
+                    <span className="text-slate-500 text-[10px] font-medium">Флип-активность:</span>
+                    {(resaleChainsByBedroom[ut.bedrooms ?? 0] ?? 0) > 0 ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/90 px-2 py-0.5 rounded-md">
+                        <Sparkles className="h-3 w-3 text-indigo-600 shrink-0" />
+                        {resaleChainsByBedroom[ut.bedrooms ?? 0]} флипов
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                        <Lock className="h-3 w-3 text-slate-400 shrink-0" />
+                        0 перепродаж (100% Hold)
+                      </span>
+                    )}
                   </div>
 
                   {/* Badges */}
@@ -539,156 +641,43 @@ export default function ProjectDetailClient({
           </div>
         </div>
 
+        {/* RECENT TRANSACTIONS LEDGER (Last 5 Deals by Selected Bedroom) */}
+        <RecentTransactionsSection
+          bedrooms={activeUnit?.bedrooms ?? 1}
+          projectName={project.nameEn}
+          transactionsResult={transactionsResult}
+          loading={transactionsLoading}
+        />
+
+        {/* UNIT RESALE & FLIP LEDGER (98–100% Digital Fingerprint Chains) */}
+        <ResaleChainsSection
+          projectId={project.id}
+          projectName={project.nameEn}
+          initialChainsResult={initialResaleChains ?? null}
+          selectedBedroom={activeUnit?.bedrooms ?? null}
+          unitTypes={units}
+          onSelectBedroom={(bed) => {
+            if (bed === null) return;
+            const match = units.find((u) => u.bedrooms === bed);
+            if (match) handleSelectUnit(match);
+          }}
+        />
+
         {/* LIVE EMBEDDED CMA 3-GROUP ANALYSIS (Phase 3 Engine) */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-sky-600" />
-                <h2 className="font-bold text-slate-900 text-base">
-                  Comparable Market Analysis (Phase 3 Live)
-                </h2>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
-                  Active
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Real-time analysis against 484k+ verified DLD transactions for format:{" "}
-                <strong className="text-sky-700 font-semibold">{bedroomLabel(activeUnit?.bedrooms ?? 1)}</strong> in{" "}
-                <strong className="text-slate-800">{project.areaNameEn || "Cluster"}</strong>
-              </p>
-            </div>
-
-            <Link
-              href={`/projects/${project.id}/cma`}
-              className="inline-flex items-center gap-1.5 text-xs text-sky-600 hover:text-sky-700 font-semibold hover:underline shrink-0"
-            >
-              Open Dedicated CMA Page &rarr;
-            </Link>
-          </div>
-
-          {cmaLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center gap-2 text-sky-700 text-xs">
-              <RefreshCw className="h-5 w-5 animate-spin text-sky-600" />
-              Recalculating CMA 3-group comparables for selected unit...
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Primary Gap Banner */}
-              <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
-                    Target Unit Asking PSF
-                  </span>
-                  <div className="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">
-                    {Number(cma.targetPsf).toFixed(0)}{" "}
-                    <span className="text-xs font-normal text-slate-500">AED/sq.ft.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6">
-                  <div>
-                    <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold block">
-                      Gap to Ready Median
-                    </span>
-                    <div className="mt-0.5">
-                      {cma.gapToReadyPercent !== null ? (
-                        Number(cma.gapToReadyPercent) > 0 ? (
-                          <span className="text-xl font-bold text-emerald-600 flex items-center tabular-nums">
-                            <TrendingDown className="h-4 w-4 mr-1" />
-                            -{Number(cma.gapToReadyPercent).toFixed(1)}%
-                          </span>
-                        ) : (
-                          <span className="text-xl font-bold text-rose-600 flex items-center tabular-nums">
-                            <TrendingUp className="h-4 w-4 mr-1" />
-                            +{Math.abs(Number(cma.gapToReadyPercent)).toFixed(1)}%
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-xs text-slate-500 font-medium">Insufficient Sample</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="border-l border-slate-200 pl-6">
-                    <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold block">
-                      Sample Gate Status
-                    </span>
-                    <div className="mt-1">
-                      {getReliabilityBadge(cma.readyGroup.reliability)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3 Comparable Groups */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Group A */}
-                <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-4 space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-emerald-700">Group A: Ready Sales</span>
-                    <span className="text-slate-500 font-mono">{cma.readyGroup.count} sales</span>
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 tabular-nums">
-                    {cma.readyGroup.medianPsf ? `${Number(cma.readyGroup.medianPsf).toFixed(0)} AED` : "—"}
-                    <span className="text-[11px] font-normal text-slate-500 ml-1">psf median</span>
-                  </div>
-                  <div className="text-[11px] text-slate-600">
-                    Distinct towers: <strong className="text-slate-900">{cma.readyGroup.distinctBuildings}</strong>
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    {cma.readyGroup.reliabilityNote}
-                  </p>
-                </div>
-
-                {/* Group B */}
-                <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-4 space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-sky-700">Group B: Off-Plan Comps</span>
-                    <span className="text-slate-500 font-mono">{cma.offPlanGroup.count} sales</span>
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 tabular-nums">
-                    {cma.offPlanGroup.medianPsf ? `${Number(cma.offPlanGroup.medianPsf).toFixed(0)} AED` : "—"}
-                    <span className="text-[11px] font-normal text-slate-500 ml-1">psf median</span>
-                  </div>
-                  <div className="text-[11px] text-slate-600">
-                    Gap: <strong className="text-slate-900">{cma.gapToOffPlanPercent !== null ? `${Number(cma.gapToOffPlanPercent).toFixed(1)}%` : "—"}</strong>
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    {cma.offPlanGroup.reliabilityNote}
-                  </p>
-                </div>
-
-                {/* Group C */}
-                <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-4 space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-indigo-700">Group C: Near-Handover</span>
-                    <span className="text-slate-500 font-mono">{cma.nearHandoverGroup.count} sales</span>
-                  </div>
-                  <div className="text-xl font-bold text-slate-900 tabular-nums">
-                    {cma.nearHandoverGroup.medianPsf ? `${Number(cma.nearHandoverGroup.medianPsf).toFixed(0)} AED` : "—"}
-                    <span className="text-[11px] font-normal text-slate-500 ml-1">psf median</span>
-                  </div>
-                  <div className="text-[11px] text-slate-600">
-                    Status: <strong className="text-indigo-800">{cma.nearHandoverGroup.reliability}</strong>
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    Benchmark for units closer to key handover milestone.
-                  </p>
-                </div>
-              </div>
-
-              {/* Editorial Synthesis */}
-              <div className="bg-sky-50/70 border border-sky-200/80 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-sky-950">
-                <Info className="h-4 w-4 text-sky-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="text-sky-900">Methodological Synthesis (§7): </strong>
-                  {cma.editorialConclusion}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <CmaSection
+          projectId={project.id}
+          projectName={project.nameEn}
+          areaName={project.areaNameEn || "Cluster"}
+          expectedHandoverDate={project.expectedHandoverDate}
+          initialCma={cma}
+          activeBedroom={activeUnit?.bedrooms ?? 1}
+          activeUnit={activeUnit}
+          unitTypes={units}
+          onSelectBedroom={(bed) => {
+            const match = units.find((u) => u.bedrooms === bed);
+            if (match) handleSelectUnit(match);
+          }}
+        />
 
         {/* Phase 4: Funding & Exit Scenario Engine (§9, §11, §12) */}
         <FundingExitSimulator

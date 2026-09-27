@@ -1,18 +1,20 @@
 /**
- * DLD Pipeline Adapter — Phase 2
- * 
- * Reads processed data from the DLD PIPELINE DuckDB file and imports
- * it into our SQLite catalog database via Drizzle ORM.
+ * Authoritative DLD Pipeline Adapter
  * 
  * Rules:
- * - Monetary values stored as integers (AED whole units)
- * - Area always normalized to sqft (1 sqm = 10.7639104 sqft)
- * - Studio bedrooms = 0, unknown = null
- * - Duplicate runs are idempotent (upsert by source key)
- * - Exclusion reasons recorded — never silently dropped
+ * - Single authoritative ingestion contract boundary for DLD open data.
+ * - Exact observed DLD open data fields; zero invented default classifications.
+ * - Studio = 0, unknown = null.
+ * - Monetary values stored as integers (AED whole units).
+ * - Area normalized to sqft (1 sqm = 10.7639104 sqft).
+ * - Service cost billing unit is unassumed; never defaulted to AED/sqft without evidence.
+ * - Zero random UUID fallbacks; invalid records quarantined.
+ * - Replay idempotency: identical replays are skipped; corrections create auditable revisions.
+ * - Canonical projects use DLD project_id ('proj_dld_<project_id>'); project_number mapped via crosswalk.
+ * - Unicode preserved in project names; ambiguous matches sent to match_queue for review.
  */
 
-import { db } from "@/server/db";
+import { db as defaultDb, type DB } from "@/server/db";
 import {
   ingestionRuns,
   transactionFacts,
@@ -20,26 +22,67 @@ import {
   serviceChargeFacts,
   sourceConnections,
   dataHealthChecks,
+  sourceRecordRevisions,
+  quarantinedRecords,
+  matchQueue,
+  projects,
 } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+import {
+  SQM_TO_SQFT,
+  parseBedrooms,
+  classifyTransaction,
+  normalizeProjectName,
+  calculatePayloadChecksum,
+  normalizeTransaction,
+  normalizeRentContract,
+  normalizeServiceCharge,
+  type RawDldTransaction,
+  type RawDldRentContract,
+  type RawDldServiceCharge,
+  type NormalizedTransactionFact,
+  type NormalizedRentContractFact,
+  type NormalizedServiceChargeFact,
+  type ProjectCrosswalk,
+} from "@/domain/dld/normalization";
 
-const SQM_TO_SQFT = 10.7639104;
-const DLD_SOURCE_ID = "dld_pipeline_duckdb";
+export {
+  SQM_TO_SQFT,
+  parseBedrooms,
+  classifyTransaction,
+  normalizeProjectName,
+  calculatePayloadChecksum,
+  normalizeTransaction,
+  normalizeRentContract,
+  normalizeServiceCharge,
+  type RawDldTransaction,
+  type RawDldRentContract,
+  type RawDldServiceCharge,
+  type NormalizedTransactionFact,
+  type NormalizedRentContractFact,
+  type NormalizedServiceChargeFact,
+  type ProjectCrosswalk,
+};
+
+export const DLD_SOURCE_ID = "dld_pipeline_duckdb";
 
 // ---------------------------------------------------------------------------
-// Bootstrap source connection record if it doesn't exist
+// Bootstrap source connection
 // ---------------------------------------------------------------------------
 
-export async function ensureDldSourceConnection() {
-  const existing = await db
+export async function ensureDldSourceConnection(dbClient?: DB) {
+  const client = dbClient || defaultDb;
+  const existing = await client
     .select()
     .from(sourceConnections)
     .where(eq(sourceConnections.id, DLD_SOURCE_ID))
     .limit(1);
 
   if (existing.length === 0) {
-    await db.insert(sourceConnections).values({
+    await client.insert(sourceConnections).values({
       id: DLD_SOURCE_ID,
       name: "DLD Pipeline (DuckDB)",
       type: "dld_open_api",
@@ -56,241 +99,729 @@ export async function ensureDldSourceConnection() {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: parse bedrooms from raw DLD string/number
-// Studio → 0, unknown → null
+// Load Project Crosswalk
 // ---------------------------------------------------------------------------
 
-export function parseBedrooms(raw: unknown): number | null {
-  if (raw === null || raw === undefined) return null;
-  const str = String(raw).toLowerCase().trim();
-  if (str === "studio" || str === "0" || str === "0 br") return 0;
-  const n = parseInt(str, 10);
-  if (!isNaN(n) && n >= 0 && n <= 20) return n;
-  return null; // Unknown — NOT 0
-}
+export async function loadProjectCrosswalk(dbClient?: DB): Promise<ProjectCrosswalk> {
+  const client = dbClient || defaultDb;
+  const crosswalk: ProjectCrosswalk = {
+    projectNumberToProjectId: new Map<string, string>(),
+    materializedProjectIds: new Set<string>(),
+    registryProjectIds: new Set<string>(),
+    canonicalProjectIds: new Set<string>(),
+    nameToProjectIds: new Map<string, string[]>(),
+  };
 
-// ---------------------------------------------------------------------------
-// Helper: determine if a DLD transaction is residential apartment
-// ---------------------------------------------------------------------------
+  // 1. Load canonical project rows from SQLite database
+  try {
+    const existing = await client.select({
+      id: projects.id,
+      dldProjectId: projects.dldProjectId,
+      dldProjectNumber: projects.dldProjectNumber,
+      nameEn: projects.nameEn,
+      nameAr: projects.nameAr,
+    }).from(projects);
 
-export function classifyTransaction(row: Record<string, unknown>): {
-  isOffPlan: boolean | null;
-  isResidential: boolean | null;
-  isExcluded: boolean;
-  exclusionReason: string | null;
-} {
-  const type = String(row.trans_type_en || row.transaction_type_en || "").toLowerCase();
-  const propType = String(row.prop_type_en || row.property_type_en || "").toLowerCase();
-  const propSubtype = String(row.prop_sub_type_en || row.property_subtype_en || "").toLowerCase();
+    for (const p of existing) {
+      crosswalk.materializedProjectIds.add(p.id);
+      crosswalk.canonicalProjectIds.add(p.id);
+      const pid = p.dldProjectId || (p.id.startsWith("proj_dld_") ? p.id.replace("proj_dld_", "") : null);
+      if (pid) {
+        if (p.dldProjectNumber) {
+          const rawPnum = String(p.dldProjectNumber).split(".")[0].trim();
+          if (rawPnum) {
+            crosswalk.projectNumberToProjectId.set(rawPnum, pid);
+          }
+        }
+        if (p.nameEn) {
+          const norm = normalizeProjectName(p.nameEn);
+          if (norm) {
+            const list = crosswalk.nameToProjectIds.get(norm) || [];
+            if (!list.includes(pid)) list.push(pid);
+            crosswalk.nameToProjectIds.set(norm, list);
+          }
+        }
+        if (p.nameAr) {
+          const norm = normalizeProjectName(p.nameAr);
+          if (norm) {
+            const list = crosswalk.nameToProjectIds.get(norm) || [];
+            if (!list.includes(pid)) list.push(pid);
+            crosswalk.nameToProjectIds.set(norm, list);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    throw new Error(`Failed to load materialized projects for crosswalk: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
-  // Exclude non-sale transaction types
-  const nonSaleTypes = ["mortgage", "gift", "inheritance", "whole building", "bulk"];
-  for (const t of nonSaleTypes) {
-    if (type.includes(t)) {
-      return { isOffPlan: null, isResidential: null, isExcluded: true, exclusionReason: `non_sale_type:${type}` };
+  // 2. Load verified registry from tracked JSON or all_dld_projects.json
+  const candidateRegistryPaths = [
+    path.join(process.cwd(), "docs", "data-contracts", "dld_project_crosswalk.json"),
+    path.join(process.cwd(), "DLD PIPELINE", "data", "all_dld_projects.json"),
+  ];
+
+  for (const regPath of candidateRegistryPaths) {
+    if (fs.existsSync(regPath)) {
+      try {
+        const raw = fs.readFileSync(regPath, "utf-8");
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            const pid = item.project_id ? String(item.project_id).split(".")[0].trim() : null;
+            const pnum = item.project_number ? String(item.project_number).split(".")[0].trim() : null;
+            if (pid && pnum && !crosswalk.projectNumberToProjectId.has(pnum)) {
+              crosswalk.projectNumberToProjectId.set(pnum, pid);
+            }
+            if (pid) {
+              crosswalk.registryProjectIds.add(pid);
+              const nameEn = item.project_name_en || item.name_en;
+              const nameAr = item.project_name || item.project_name_ar || item.name_ar;
+              for (const n of [nameEn, nameAr]) {
+                if (n) {
+                  const norm = normalizeProjectName(n);
+                  if (norm) {
+                    const existingList = crosswalk.nameToProjectIds.get(norm) || [];
+                    if (!existingList.includes(pid)) existingList.push(pid);
+                    crosswalk.nameToProjectIds.set(norm, existingList);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        throw new Error(`Failed to load DLD project registry crosswalk from ${regPath}: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   }
 
-  // Exclude land and commercial
-  if (propType.includes("land") || propType.includes("villa land")) {
-    return { isOffPlan: null, isResidential: false, isExcluded: true, exclusionReason: "land" };
-  }
-  if (propSubtype.includes("hotel apartment") === false && propType.includes("hotel")) {
-    return { isOffPlan: null, isResidential: false, isExcluded: true, exclusionReason: "hotel_non_apartment" };
-  }
-
-  // Classify off-plan vs ready
-  let isOffPlan: boolean | null = null;
-  if (type.includes("off plan") || type.includes("off-plan")) {
-    isOffPlan = true;
-  } else if (type.includes("ready") || type.includes("secondary")) {
-    isOffPlan = false;
-  }
-
-  // Residential check
-  const residentialSubtypes = ["apartment", "flat", "studio", "penthouse", "duplex", "hotel apartment"];
-  const isResidential = residentialSubtypes.some((s) => propSubtype.includes(s)) ? true : null;
-
-  return { isOffPlan, isResidential, isExcluded: false, exclusionReason: null };
+  return crosswalk;
 }
 
 // ---------------------------------------------------------------------------
-// Import transactions from DLD PIPELINE output JSON/array
+// Import Transactions
 // ---------------------------------------------------------------------------
 
-export type DldTransactionRow = Record<string, unknown>;
+export interface ImportSummary {
+  fetched: number;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  quarantined: number;
+  excluded: number;
+  reconciled: boolean;
+}
 
 export async function importDldTransactions(
-  rows: DldTransactionRow[],
-  runId: string
-): Promise<{ inserted: number; skipped: number; excluded: number }> {
+  rows: RawDldTransaction[],
+  runId: string,
+  options?: { crosswalk?: ProjectCrosswalk; dbClient?: DB }
+): Promise<ImportSummary> {
+  const client = options?.dbClient || defaultDb;
+  const crosswalk = options?.crosswalk || (await loadProjectCrosswalk(client));
+
   let inserted = 0;
+  let updated = 0;
   let skipped = 0;
+  let quarantined = 0;
   let excluded = 0;
 
-  // Process in batches of 500 to avoid SQLite statement size limits
-  const BATCH_SIZE = 500;
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    const values = batch.map((row) => {
-      const classification = classifyTransaction(row);
-      const areaSqm = parseFloat(String(row.area_sqm || row.actual_area || 0)) || null;
-      const areaSqft = areaSqm ? areaSqm * SQM_TO_SQFT : null;
-      const txValue = parseInt(String(row.trans_value || row.transaction_value_aed || 0), 10) || null;
-      const pricePerSqft = areaSqft && txValue ? txValue / areaSqft : null;
-
-      if (classification.isExcluded) excluded++;
-
-      return {
-        id: String(row.transaction_id || row.trans_id || `tx_${i}_${crypto.randomUUID()}`),
+  for (const row of rows) {
+    const norm = normalizeTransaction(row, crosswalk);
+    if (!norm.success) {
+      quarantined++;
+      await client.insert(quarantinedRecords).values({
+        id: crypto.randomUUID(),
+        sourceConnectionId: DLD_SOURCE_ID,
         sourceRunId: runId,
-        transactionNo: String(row.trans_no || row.transaction_no || ""),
-        transactionDate: String(row.trans_date || row.transaction_date || ""),
-        registrationDate: String(row.reg_date || row.registration_date || "") || null,
-        areaNameEn: String(row.area_name_en || "") || null,
-        buildingNameEn: String(row.building_name_en || row.building_name || "") || null,
-        projectNameEn: String(row.project_name_en || row.project_name || "") || null,
-        dldProjectId: String(row.project_id || row.dld_project_id || "") || null,
-        unitNo: String(row.unit_no || row.unit_number || "") || null,
-        bedrooms: parseBedrooms(row.rooms || row.bedrooms || row.no_of_bedrooms),
-        areaSqm,
-        areaSqft,
-        transactionValueAed: txValue,
-        pricePerSqftAed: pricePerSqft,
-        transactionType: String(row.trans_type_en || row.transaction_type_en || "") || null,
-        propertyType: String(row.prop_type_en || row.property_type_en || "") || null,
-        propertySubtype: String(row.prop_sub_type_en || row.property_subtype_en || "") || null,
-        isOffPlan: classification.isOffPlan,
-        isResidential: classification.isResidential,
-        isExcluded: classification.isExcluded,
-        exclusionReason: classification.exclusionReason,
-        matchedProjectId: null,
-        matchedBuildingId: null,
-        matchConfidence: "unmatched",
-      };
-    });
+        recordType: "transaction",
+        rawPayload: JSON.stringify(norm.quarantine.rawPayload),
+        rejectionReason: norm.quarantine.rejectionReason,
+      });
+      continue;
+    }
 
-    // Upsert — duplicate runs don't create duplicates
-    await db
-      .insert(transactionFacts)
-      .values(values)
-      .onConflictDoNothing();
+    const fact = norm.fact;
+    if (fact.isExcluded) excluded++;
 
-    inserted += values.filter((v) => !v.isExcluded).length;
-    skipped += 0; // tracked by onConflictDoNothing result in real impl
+    // Check if fact already exists
+    const existing = await client
+      .select({
+        id: transactionFacts.id,
+        sourceRunId: transactionFacts.sourceRunId,
+        transactionValueAed: transactionFacts.transactionValueAed,
+        areaSqm: transactionFacts.areaSqm,
+        matchedProjectId: transactionFacts.matchedProjectId,
+        matchConfidence: transactionFacts.matchConfidence,
+      })
+      .from(transactionFacts)
+      .where(eq(transactionFacts.id, fact.id))
+      .limit(1);
+
+    if (existing.length === 0) {
+      // New insert: atomic transaction across fact, revision, and review queue
+      client.transaction((tx) => {
+        tx.insert(transactionFacts).values({
+          id: fact.id,
+          sourceRunId: runId,
+          transactionNo: fact.transactionNo,
+          transactionDate: fact.transactionDate,
+          registrationDate: fact.registrationDate,
+          areaNameEn: fact.areaNameEn,
+          buildingNameEn: fact.buildingNameEn,
+          projectNameEn: fact.projectNameEn,
+          dldProjectId: fact.dldProjectId,
+          unitNo: fact.unitNo,
+          bedrooms: fact.bedrooms,
+          areaSqm: fact.areaSqm,
+          areaSqft: fact.areaSqft,
+          transactionValueAed: fact.transactionValueAed,
+          pricePerSqftAed: fact.pricePerSqftAed,
+          transactionType: fact.transactionType,
+          propertyType: fact.propertyType,
+          propertySubtype: fact.propertySubtype,
+          isOffPlan: fact.isOffPlan,
+          isResidential: fact.isResidential,
+          isApartmentEligible: fact.isApartmentEligible,
+          isExcluded: fact.isExcluded,
+          exclusionReason: fact.exclusionReason,
+          matchedProjectId: fact.matchedProjectId,
+          matchedBuildingId: fact.matchedBuildingId,
+          matchConfidence: fact.matchConfidence,
+        }).run();
+
+        // Audit revision 1
+        tx.insert(sourceRecordRevisions).values({
+          id: crypto.randomUUID(),
+          sourceConnectionId: DLD_SOURCE_ID,
+          sourceRunId: runId,
+          recordType: "transaction",
+          sourceRecordId: fact.id,
+          revisionNo: 1,
+          rawPayload: JSON.stringify(row),
+          payloadChecksum: fact.rawChecksum,
+          changeType: "insert",
+        }).run();
+
+        // Review queue if ambiguous name
+        if (fact.matchConfidence === "needs_review") {
+          tx
+            .insert(matchQueue)
+            .values({
+              id: crypto.randomUUID(),
+              status: "needs_review",
+              candidateType: "project",
+              internalId: fact.needsReviewCandidates && fact.needsReviewCandidates.length === 1 ? `proj_dld_${fact.needsReviewCandidates[0]}` : null,
+              externalSource: "dld",
+              externalKey: fact.id,
+              externalName: fact.projectNameEn,
+              matchScore: fact.needsReviewCandidates && fact.needsReviewCandidates.length === 1 ? 0.75 : 0.5,
+              matchReason: fact.needsReviewCandidates && fact.needsReviewCandidates.length === 1 ? "name_only_match" : "ambiguous_name_multiple_candidates",
+              rejectionReason: null,
+              confirmedBy: null,
+            })
+            .onConflictDoNothing()
+            .run();
+        }
+      });
+
+      inserted++;
+    } else {
+      // Existing row: check latest revision checksum to detect identical replay vs correction
+      const latestRev = await client
+        .select({
+          revisionNo: sourceRecordRevisions.revisionNo,
+          payloadChecksum: sourceRecordRevisions.payloadChecksum,
+        })
+        .from(sourceRecordRevisions)
+        .where(
+          and(
+            eq(sourceRecordRevisions.recordType, "transaction"),
+            eq(sourceRecordRevisions.sourceRecordId, fact.id)
+          )
+        )
+        .orderBy(desc(sourceRecordRevisions.revisionNo))
+        .limit(1);
+
+      const isIdentical = latestRev.length > 0 && latestRev[0].payloadChecksum === fact.rawChecksum;
+
+      if (isIdentical) {
+        skipped++;
+      } else {
+        // Source correction: preserve confirmed match if manually confirmed
+        const hasExistingRev = latestRev.length > 0;
+        const nextRevNo = hasExistingRev ? latestRev[0].revisionNo + 1 : 2;
+        const isConfirmed = existing[0].matchConfidence === "confirmed";
+        const targetMatchedProjectId = isConfirmed ? existing[0].matchedProjectId : fact.matchedProjectId;
+        const targetMatchConfidence = isConfirmed ? "confirmed" : fact.matchConfidence;
+
+        client.transaction((tx) => {
+          // If existing record has no baseline revision, record baseline revision 1 first
+          if (!hasExistingRev) {
+            tx.insert(sourceRecordRevisions).values({
+              id: crypto.randomUUID(),
+              sourceConnectionId: DLD_SOURCE_ID,
+              sourceRunId: existing[0].sourceRunId || runId,
+              recordType: "transaction",
+              sourceRecordId: fact.id,
+              revisionNo: 1,
+              rawPayload: JSON.stringify(existing[0]),
+              payloadChecksum: calculatePayloadChecksum(existing[0]),
+              changeType: "baseline",
+            }).run();
+          }
+
+          tx
+            .update(transactionFacts)
+            .set({
+              sourceRunId: runId,
+              transactionDate: fact.transactionDate,
+              registrationDate: fact.registrationDate,
+              areaNameEn: fact.areaNameEn,
+              buildingNameEn: fact.buildingNameEn,
+              projectNameEn: fact.projectNameEn,
+              dldProjectId: fact.dldProjectId,
+              bedrooms: fact.bedrooms,
+              areaSqm: fact.areaSqm,
+              areaSqft: fact.areaSqft,
+              transactionValueAed: fact.transactionValueAed,
+              pricePerSqftAed: fact.pricePerSqftAed,
+              transactionType: fact.transactionType,
+              propertyType: fact.propertyType,
+              propertySubtype: fact.propertySubtype,
+              isOffPlan: fact.isOffPlan,
+              isResidential: fact.isResidential,
+              isApartmentEligible: fact.isApartmentEligible,
+              isExcluded: fact.isExcluded,
+              exclusionReason: fact.exclusionReason,
+              matchedProjectId: targetMatchedProjectId,
+              matchConfidence: targetMatchConfidence,
+            })
+            .where(eq(transactionFacts.id, fact.id))
+            .run();
+
+          tx.insert(sourceRecordRevisions).values({
+            id: crypto.randomUUID(),
+            sourceConnectionId: DLD_SOURCE_ID,
+            sourceRunId: runId,
+            recordType: "transaction",
+            sourceRecordId: fact.id,
+            revisionNo: nextRevNo,
+            rawPayload: JSON.stringify(row),
+            payloadChecksum: fact.rawChecksum,
+            changeType: "correction",
+          }).run();
+
+          // Maintain review queue on correction
+          if (!isConfirmed) {
+            if (targetMatchConfidence === "needs_review") {
+              tx
+                .insert(matchQueue)
+                .values({
+                  id: crypto.randomUUID(),
+                  status: "needs_review",
+                  candidateType: "project",
+                  internalId: fact.needsReviewCandidates && fact.needsReviewCandidates.length === 1 ? `proj_dld_${fact.needsReviewCandidates[0]}` : null,
+                  externalSource: "dld",
+                  externalKey: fact.id,
+                  externalName: fact.projectNameEn,
+                  matchScore: fact.needsReviewCandidates && fact.needsReviewCandidates.length === 1 ? 0.75 : 0.5,
+                  matchReason: fact.needsReviewCandidates && fact.needsReviewCandidates.length === 1 ? "name_only_match" : "ambiguous_name_multiple_candidates",
+                  rejectionReason: null,
+                  confirmedBy: null,
+                })
+                .onConflictDoNothing()
+                .run();
+            } else if (targetMatchConfidence === "auto") {
+              tx
+                .update(matchQueue)
+                .set({ status: "auto_resolved" })
+                .where(and(eq(matchQueue.externalKey, fact.id), eq(matchQueue.status, "needs_review")))
+                .run();
+            }
+          }
+        });
+
+        updated++;
+      }
+    }
   }
 
-  return { inserted, skipped, excluded };
+  const fetched = rows.length;
+  const reconciled = fetched === inserted + updated + skipped + quarantined;
+  return { fetched, inserted, updated, skipped, quarantined, excluded, reconciled };
 }
 
 // ---------------------------------------------------------------------------
-// Import rent contracts from DLD PIPELINE output
+// Import Rent Contracts
 // ---------------------------------------------------------------------------
-
-export type DldRentRow = Record<string, unknown>;
 
 export async function importDldRentContracts(
-  rows: DldRentRow[],
-  runId: string
-): Promise<{ inserted: number; excluded: number }> {
+  rows: RawDldRentContract[],
+  runId: string,
+  options?: { crosswalk?: ProjectCrosswalk; dbClient?: DB }
+): Promise<ImportSummary> {
+  const client = options?.dbClient || defaultDb;
+  const crosswalk = options?.crosswalk || (await loadProjectCrosswalk(client));
+
   let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  let quarantined = 0;
   let excluded = 0;
 
-  const BATCH_SIZE = 500;
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    const values = batch.map((row) => {
-      const areaSqm = parseFloat(String(row.area_sqm || row.actual_area || 0)) || null;
-      const areaSqft = areaSqm ? areaSqm * SQM_TO_SQFT : null;
-      const annualRent = parseInt(String(row.annual_amount || row.annual_rent_aed || 0), 10) || null;
-
-      // Multi-property contracts: flag but don't exclude — exclude from per-unit metrics at query time
-      const isMultiProperty =
-        parseInt(String(row.no_of_properties || "1"), 10) > 1 ? true : false;
-
-      let isExcluded = false;
-      let exclusionReason: string | null = null;
-
-      if (!annualRent || annualRent <= 0) {
-        isExcluded = true;
-        exclusionReason = "zero_or_null_rent";
-        excluded++;
-      }
-
-      return {
-        id: String(row.contract_id || row.ejari_id || `rent_${i}_${crypto.randomUUID()}`),
+  for (const row of rows) {
+    const norm = normalizeRentContract(row, crosswalk);
+    if (!norm.success) {
+      quarantined++;
+      await client.insert(quarantinedRecords).values({
+        id: crypto.randomUUID(),
+        sourceConnectionId: DLD_SOURCE_ID,
         sourceRunId: runId,
-        contractDate: String(row.contract_date || row.ejari_date || ""),
-        startDate: String(row.start_date || "") || null,
-        endDate: String(row.end_date || "") || null,
-        contractType: String(row.contract_type || row.is_new || "new").toLowerCase() === "new" ? "new" : "renew",
-        areaNameEn: String(row.area_name_en || "") || null,
-        buildingNameEn: String(row.building_name_en || "") || null,
-        unitNo: String(row.unit_no || "") || null,
-        bedrooms: parseBedrooms(row.rooms || row.bedrooms || row.no_of_rooms),
-        areaSqm,
-        areaSqft,
-        annualRentAed: annualRent,
-        isMultiProperty,
-        isExcluded,
-        exclusionReason,
-        matchedProjectId: null,
-        matchConfidence: "unmatched",
-      };
-    });
+        recordType: "rent_contract",
+        rawPayload: JSON.stringify(norm.quarantine.rawPayload),
+        rejectionReason: norm.quarantine.rejectionReason,
+      });
+      continue;
+    }
 
-    await db.insert(rentContractFacts).values(values).onConflictDoNothing();
-    inserted += values.filter((v) => !v.isExcluded).length;
+    const fact = norm.fact;
+    if (fact.isExcluded) excluded++;
+
+    const existing = await client
+      .select({
+        id: rentContractFacts.id,
+        sourceRunId: rentContractFacts.sourceRunId,
+        matchedProjectId: rentContractFacts.matchedProjectId,
+        matchConfidence: rentContractFacts.matchConfidence,
+      })
+      .from(rentContractFacts)
+      .where(eq(rentContractFacts.id, fact.id))
+      .limit(1);
+
+    if (existing.length === 0) {
+      client.transaction((tx) => {
+        tx.insert(rentContractFacts).values({
+          id: fact.id,
+          sourceRunId: runId,
+          contractDate: fact.contractDate,
+          startDate: fact.startDate,
+          endDate: fact.endDate,
+          contractType: fact.contractType,
+          areaNameEn: fact.areaNameEn,
+          buildingNameEn: fact.buildingNameEn,
+          unitNo: fact.unitNo,
+          bedrooms: fact.bedrooms,
+          areaSqm: fact.areaSqm,
+          areaSqft: fact.areaSqft,
+          annualRentAed: fact.annualRentAed,
+          propertyUsage: fact.propertyUsage,
+          isResidential: fact.isResidential,
+          isApartmentEligible: fact.isApartmentEligible,
+          isMultiProperty: fact.isMultiProperty,
+          isExcluded: fact.isExcluded,
+          exclusionReason: fact.exclusionReason,
+          matchedProjectId: fact.matchedProjectId,
+          matchConfidence: fact.matchConfidence,
+        }).run();
+
+        tx.insert(sourceRecordRevisions).values({
+          id: crypto.randomUUID(),
+          sourceConnectionId: DLD_SOURCE_ID,
+          sourceRunId: runId,
+          recordType: "rent_contract",
+          sourceRecordId: fact.id,
+          revisionNo: 1,
+          rawPayload: JSON.stringify(row),
+          payloadChecksum: fact.rawChecksum,
+          changeType: "insert",
+        }).run();
+      });
+
+      inserted++;
+    } else {
+      const latestRev = await client
+        .select({
+          revisionNo: sourceRecordRevisions.revisionNo,
+          payloadChecksum: sourceRecordRevisions.payloadChecksum,
+        })
+        .from(sourceRecordRevisions)
+        .where(
+          and(
+            eq(sourceRecordRevisions.recordType, "rent_contract"),
+            eq(sourceRecordRevisions.sourceRecordId, fact.id)
+          )
+        )
+        .orderBy(desc(sourceRecordRevisions.revisionNo))
+        .limit(1);
+
+      const isIdentical = latestRev.length > 0 && latestRev[0].payloadChecksum === fact.rawChecksum;
+
+      if (isIdentical) {
+        skipped++;
+      } else {
+        const hasExistingRev = latestRev.length > 0;
+        const nextRevNo = hasExistingRev ? latestRev[0].revisionNo + 1 : 2;
+        const isConfirmed = existing[0].matchConfidence === "confirmed";
+        const targetMatchedProjectId = isConfirmed ? existing[0].matchedProjectId : fact.matchedProjectId;
+        const targetMatchConfidence = isConfirmed ? "confirmed" : fact.matchConfidence;
+
+        client.transaction((tx) => {
+          if (!hasExistingRev) {
+            tx.insert(sourceRecordRevisions).values({
+              id: crypto.randomUUID(),
+              sourceConnectionId: DLD_SOURCE_ID,
+              sourceRunId: existing[0].sourceRunId || runId,
+              recordType: "rent_contract",
+              sourceRecordId: fact.id,
+              revisionNo: 1,
+              rawPayload: JSON.stringify(existing[0]),
+              payloadChecksum: calculatePayloadChecksum(existing[0]),
+              changeType: "baseline",
+            }).run();
+          }
+
+          tx
+            .update(rentContractFacts)
+            .set({
+              sourceRunId: runId,
+              contractDate: fact.contractDate,
+              startDate: fact.startDate,
+              endDate: fact.endDate,
+              contractType: fact.contractType,
+              areaNameEn: fact.areaNameEn,
+              buildingNameEn: fact.buildingNameEn,
+              bedrooms: fact.bedrooms,
+              areaSqm: fact.areaSqm,
+              areaSqft: fact.areaSqft,
+              annualRentAed: fact.annualRentAed,
+              propertyUsage: fact.propertyUsage,
+              isResidential: fact.isResidential,
+              isApartmentEligible: fact.isApartmentEligible,
+              isMultiProperty: fact.isMultiProperty,
+              isExcluded: fact.isExcluded,
+              exclusionReason: fact.exclusionReason,
+              matchedProjectId: targetMatchedProjectId,
+              matchConfidence: targetMatchConfidence,
+            })
+            .where(eq(rentContractFacts.id, fact.id))
+            .run();
+
+          tx.insert(sourceRecordRevisions).values({
+            id: crypto.randomUUID(),
+            sourceConnectionId: DLD_SOURCE_ID,
+            sourceRunId: runId,
+            recordType: "rent_contract",
+            sourceRecordId: fact.id,
+            revisionNo: nextRevNo,
+            rawPayload: JSON.stringify(row),
+            payloadChecksum: fact.rawChecksum,
+            changeType: "correction",
+          }).run();
+
+          if (!isConfirmed) {
+            if (targetMatchConfidence === "needs_review") {
+              tx
+                .insert(matchQueue)
+                .values({
+                  id: crypto.randomUUID(),
+                  status: "needs_review",
+                  candidateType: "project",
+                  internalId: null,
+                  externalSource: "dld_rent",
+                  externalKey: fact.id,
+                  externalName: fact.buildingNameEn,
+                  matchScore: 0.5,
+                  matchReason: "ambiguous_name_multiple_candidates",
+                  rejectionReason: null,
+                  confirmedBy: null,
+                })
+                .onConflictDoNothing()
+                .run();
+            } else if (targetMatchConfidence === "auto") {
+              tx
+                .update(matchQueue)
+                .set({ status: "auto_resolved" })
+                .where(and(eq(matchQueue.externalKey, fact.id), eq(matchQueue.status, "needs_review")))
+                .run();
+            }
+          }
+        });
+
+        updated++;
+      }
+    }
   }
 
-  return { inserted, excluded };
+  const fetched = rows.length;
+  const reconciled = fetched === inserted + updated + skipped + quarantined;
+  return { fetched, inserted, updated, skipped, quarantined, excluded, reconciled };
 }
 
 // ---------------------------------------------------------------------------
-// Import service charges from DLD PIPELINE output
+// Import Service Charges
 // ---------------------------------------------------------------------------
-
-export type DldServiceChargeRow = Record<string, unknown>;
 
 export async function importDldServiceCharges(
-  rows: DldServiceChargeRow[],
-  runId: string
-): Promise<{ inserted: number }> {
-  const BATCH_SIZE = 500;
+  rows: RawDldServiceCharge[],
+  runId: string,
+  options?: { crosswalk?: ProjectCrosswalk; dbClient?: DB }
+): Promise<ImportSummary> {
+  const client = options?.dbClient || defaultDb;
+  const crosswalk = options?.crosswalk || (await loadProjectCrosswalk(client));
+
   let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  let quarantined = 0;
+  const excluded = 0;
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const batch = rows.slice(i, i + BATCH_SIZE);
-    const values = batch.map((row) => ({
-      id: String(row.id || `sc_${i}_${crypto.randomUUID()}`),
-      sourceRunId: runId,
-      year: parseInt(String(row.year || row.service_charge_year || new Date().getFullYear()), 10),
-      buildingNameEn: String(row.building_name_en || row.building_name || "") || null,
-      areaNameEn: String(row.area_name_en || "") || null,
-      annualChargePerSqft: parseFloat(String(row.amount_per_sqft || row.charge_per_sqft || 0)) || null,
-      annualChargePerSqm: parseFloat(String(row.amount_per_sqm || row.charge_per_sqm || 0)) || null,
-      chargeCategory: String(row.charge_category || row.category || "") || null,
-      matchedProjectId: null,
-      matchedBuildingId: null,
-    }));
+  for (const row of rows) {
+    const norm = normalizeServiceCharge(row, crosswalk);
+    if (!norm.success) {
+      quarantined++;
+      await client.insert(quarantinedRecords).values({
+        id: crypto.randomUUID(),
+        sourceConnectionId: DLD_SOURCE_ID,
+        sourceRunId: runId,
+        recordType: "service_charge",
+        rawPayload: JSON.stringify(norm.quarantine.rawPayload),
+        rejectionReason: norm.quarantine.rejectionReason,
+      });
+      continue;
+    }
 
-    await db.insert(serviceChargeFacts).values(values).onConflictDoNothing();
-    inserted += values.length;
+    const fact = norm.fact;
+
+    const existing = await client
+      .select({ id: serviceChargeFacts.id })
+      .from(serviceChargeFacts)
+      .where(eq(serviceChargeFacts.id, fact.id))
+      .limit(1);
+
+    if (existing.length === 0) {
+      client.transaction((tx) => {
+        tx.insert(serviceChargeFacts).values({
+          id: fact.id,
+          sourceRunId: runId,
+          year: fact.year,
+          buildingNameEn: fact.buildingNameEn,
+          areaNameEn: fact.areaNameEn,
+          annualChargePerSqft: fact.annualChargePerSqft,
+          annualChargePerSqm: fact.annualChargePerSqm,
+          chargeCategory: fact.chargeCategory,
+          matchedProjectId: fact.matchedProjectId,
+          matchedBuildingId: fact.matchedBuildingId,
+          rawServiceCost: fact.rawServiceCost,
+          rawServiceCostUnit: fact.rawServiceCostUnit,
+        }).run();
+
+        tx.insert(sourceRecordRevisions).values({
+          id: crypto.randomUUID(),
+          sourceConnectionId: DLD_SOURCE_ID,
+          sourceRunId: runId,
+          recordType: "service_charge",
+          sourceRecordId: fact.id,
+          revisionNo: 1,
+          rawPayload: JSON.stringify(row),
+          payloadChecksum: fact.rawChecksum,
+          changeType: "insert",
+        }).run();
+      });
+
+      inserted++;
+    } else {
+      const latestRev = await client
+        .select({
+          revisionNo: sourceRecordRevisions.revisionNo,
+          payloadChecksum: sourceRecordRevisions.payloadChecksum,
+        })
+        .from(sourceRecordRevisions)
+        .where(
+          and(
+            eq(sourceRecordRevisions.recordType, "service_charge"),
+            eq(sourceRecordRevisions.sourceRecordId, fact.id)
+          )
+        )
+        .orderBy(desc(sourceRecordRevisions.revisionNo))
+        .limit(1);
+
+      const isIdentical = latestRev.length > 0 && latestRev[0].payloadChecksum === fact.rawChecksum;
+
+      if (isIdentical) {
+        skipped++;
+      } else {
+        const hasExistingRev = latestRev.length > 0;
+        const nextRevNo = hasExistingRev ? latestRev[0].revisionNo + 1 : 2;
+
+        client.transaction((tx) => {
+          if (!hasExistingRev) {
+            tx.insert(sourceRecordRevisions).values({
+              id: crypto.randomUUID(),
+              sourceConnectionId: DLD_SOURCE_ID,
+              sourceRunId: runId,
+              recordType: "service_charge",
+              sourceRecordId: fact.id,
+              revisionNo: 1,
+              rawPayload: JSON.stringify(row),
+              payloadChecksum: calculatePayloadChecksum(row),
+              changeType: "baseline",
+            }).run();
+          }
+
+          tx
+            .update(serviceChargeFacts)
+            .set({
+              sourceRunId: runId,
+              year: fact.year,
+              buildingNameEn: fact.buildingNameEn,
+              areaNameEn: fact.areaNameEn,
+              annualChargePerSqft: fact.annualChargePerSqft,
+              annualChargePerSqm: fact.annualChargePerSqm,
+              chargeCategory: fact.chargeCategory,
+              matchedProjectId: fact.matchedProjectId,
+              rawServiceCost: fact.rawServiceCost,
+              rawServiceCostUnit: fact.rawServiceCostUnit,
+            })
+            .where(eq(serviceChargeFacts.id, fact.id))
+            .run();
+
+          tx.insert(sourceRecordRevisions).values({
+            id: crypto.randomUUID(),
+            sourceConnectionId: DLD_SOURCE_ID,
+            sourceRunId: runId,
+            recordType: "service_charge",
+            sourceRecordId: fact.id,
+            revisionNo: nextRevNo,
+            rawPayload: JSON.stringify(row),
+            payloadChecksum: fact.rawChecksum,
+            changeType: "correction",
+          }).run();
+        });
+
+        updated++;
+      }
+    }
   }
 
-  return { inserted };
+  const fetched = rows.length;
+  const reconciled = fetched === inserted + updated + skipped + quarantined;
+  return { fetched, inserted, updated, skipped, quarantined, excluded, reconciled };
 }
 
 // ---------------------------------------------------------------------------
-// Create an ingestion run record
+// Run Management
 // ---------------------------------------------------------------------------
 
 export async function createIngestionRun(
   sourceId: string,
-  filterParams: Record<string, unknown>
+  filterParams: Record<string, unknown>,
+  dbClient?: DB
 ): Promise<string> {
-  const runId = crypto.randomUUID();
-  await db.insert(ingestionRuns).values({
+  const client = dbClient || defaultDb;
+  const runId = `run_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  await client.insert(ingestionRuns).values({
     id: runId,
     sourceConnectionId: sourceId,
     status: "running",
@@ -302,25 +833,25 @@ export async function createIngestionRun(
 
 export async function completeIngestionRun(
   runId: string,
-  counts: { fetched: number; inserted: number; skipped: number },
-  error?: string
+  counts: { fetched: number; inserted: number; updated?: number; skipped: number; quarantined?: number },
+  error?: string,
+  dbClient?: DB
 ) {
-  await db
+  const client = dbClient || defaultDb;
+  await client
     .update(ingestionRuns)
     .set({
       status: error ? "failed" : "done",
       completedAt: new Date().toISOString(),
       recordsFetched: counts.fetched,
       recordsInserted: counts.inserted,
+      recordsUpdated: counts.updated ?? 0,
       recordsSkipped: counts.skipped,
+      recordsQuarantined: counts.quarantined ?? 0,
       errorMessage: error ?? null,
     })
     .where(eq(ingestionRuns.id, runId));
 }
-
-// ---------------------------------------------------------------------------
-// Data health check summary
-// ---------------------------------------------------------------------------
 
 export async function recordHealthCheck(
   sourceId: string,
@@ -330,9 +861,11 @@ export async function recordHealthCheck(
     newestRecord?: string;
     status: "ok" | "stale" | "missing" | "schema_drift";
     notes?: string;
-  }
+  },
+  dbClient?: DB
 ) {
-  await db.insert(dataHealthChecks).values({
+  const client = dbClient || defaultDb;
+  await client.insert(dataHealthChecks).values({
     id: crypto.randomUUID(),
     sourceConnectionId: sourceId,
     totalRecords: stats.totalRecords,

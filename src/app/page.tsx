@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Header } from "@/components/desk/Header";
 import { ClientBriefSection } from "@/components/desk/ClientBriefSection";
 import { OfferComparisonSection, OfferData } from "@/components/desk/OfferComparisonSection";
@@ -106,6 +107,13 @@ export default function ResearchDeskPage() {
     });
   };
 
+  const handleQuickFixCash = (amount: number) => {
+    setClient((prev) => ({
+      ...prev,
+      initialLiquidCash: Number(prev.initialLiquidCash) + amount,
+    }));
+  };
+
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) || offers[0];
 
   const selectedSchedule: OfferPaymentSchedule = {
@@ -148,7 +156,7 @@ export default function ResearchDeskPage() {
         onOpenPrintPreview={() => setIsPrintPreviewOpen(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+      <main suppressHydrationWarning className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
         {/* Executive Command Hub & Featured Property Banner */}
         <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-sm relative overflow-hidden">
           {/* Top Title & Action Bar */}
@@ -174,6 +182,13 @@ export default function ResearchDeskPage() {
 
             {/* Quick Action Bar */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <Link
+                href="/workbench"
+                className="flex items-center space-x-2 border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold px-5 py-2.5 rounded-xl text-xs transition-all"
+              >
+                <Sparkles className="h-4 w-4 text-sky-600" />
+                <span>Open New Workbench</span>
+              </Link>
               <button
                 onClick={() => setIsPrintPreviewOpen(true)}
                 className="flex items-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-sm ring-1 ring-slate-900/10 active:scale-95 transition-all"
@@ -187,29 +202,49 @@ export default function ResearchDeskPage() {
           {/* Real-Time KPI Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
             {/* KPI 1: Solvency Status */}
-            <div className="bg-slate-50/80 p-4 sm:p-5 rounded-xl border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col justify-between group shadow-sm">
-              <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500 flex items-center justify-between">
-                <span>Solvency Gate</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              </div>
-              <div className="my-2.5 flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                </div>
-                <div>
-                  <div className="text-xl font-bold font-mono text-emerald-700 tracking-tight">
-                    {fundingEvaluation.status}
+            {(() => {
+              const isFlipStrategy = client.strategy === "flip";
+              const isFlipPassed = fundingEvaluation.flipStatus === "PASSED";
+              const isFullPassed = fundingEvaluation.status === "PASSED";
+
+              let statusText: string = fundingEvaluation.status;
+              let subText = "Zero Deficit Check";
+              let headroomDisplay = formatAED(fundingEvaluation.minHeadroom.toNumber());
+              let isPositive = isFullPassed;
+
+              if (!isFullPassed && isFlipStrategy && isFlipPassed) {
+                statusText = "FLIP SOLVENT";
+                subText = "Zero Deficit in Plan";
+                headroomDisplay = `+${formatAED(fundingEvaluation.flipMinHeadroom.toNumber())}`;
+                isPositive = true;
+              }
+
+              return (
+                <div className="bg-slate-50/80 p-4 sm:p-5 rounded-xl border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col justify-between group shadow-sm">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500 flex items-center justify-between">
+                    <span>Solvency Gate</span>
+                    <span className={`w-2 h-2 rounded-full ${isPositive ? "bg-emerald-500" : "bg-rose-500"}`} />
                   </div>
-                  <div className="text-[10px] text-slate-500 font-medium">
-                    Zero Deficit Check
+                  <div className="my-2.5 flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${isPositive ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
+                      <CheckCircle2 className={`h-5 w-5 ${isPositive ? "text-emerald-600" : "text-rose-600"}`} />
+                    </div>
+                    <div>
+                      <div className={`text-xl font-bold font-mono tracking-tight ${isPositive ? "text-emerald-700" : "text-rose-700"}`}>
+                        {statusText}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        {subText}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-700 font-mono pt-2 border-t border-slate-200/80 flex items-center justify-between">
+                    <span className="text-slate-500 text-[10px] font-sans">Min Headroom:</span>
+                    <span className={`font-bold ${isPositive ? "text-emerald-700" : "text-rose-700"}`}>{headroomDisplay}</span>
                   </div>
                 </div>
-              </div>
-              <div className="text-[11px] text-slate-700 font-mono pt-2 border-t border-slate-200/80 flex items-center justify-between">
-                <span className="text-slate-500 text-[10px] font-sans">Min Headroom:</span>
-                <span className="text-emerald-700 font-bold">{formatAED(fundingEvaluation.minHeadroom.toNumber())}</span>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* KPI 2: Target Allocation */}
             <div className="bg-slate-50/80 p-4 sm:p-5 rounded-xl border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col justify-between group shadow-sm">
@@ -282,7 +317,12 @@ export default function ResearchDeskPage() {
 
         {/* Section 1: Client Brief */}
         <div id="brief-section">
-          <ClientBriefSection client={client} onChange={setClient} />
+          <ClientBriefSection
+            client={client}
+            onChange={setClient}
+            deficitAmount={fundingEvaluation.deficitAmount ? fundingEvaluation.deficitAmount.toNumber() : 0}
+            onQuickFixCash={handleQuickFixCash}
+          />
         </div>
 
         {/* Section 2: Side-by-Side Offer Comparison */}
@@ -307,6 +347,13 @@ export default function ResearchDeskPage() {
             reserve={Number(client.requiredReserve)}
             stressDelayMonths={stressDelayMonths}
             onStressDelayChange={setStressDelayMonths}
+            strategy={client.strategy}
+            flipMinHeadroom={fundingEvaluation.flipMinHeadroom.toNumber()}
+            flipStatus={fundingEvaluation.flipStatus}
+            cashRemainingAtHandover={fundingEvaluation.cashRemainingAtHandover.toNumber()}
+            isHandoverDeficitOnly={fundingEvaluation.isHandoverDeficitOnly}
+            isReserveErosionOnly={fundingEvaluation.isReserveErosionOnly}
+            onQuickFixCash={handleQuickFixCash}
           />
         </div>
 

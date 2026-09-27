@@ -43,10 +43,11 @@
   - $5 - 14$ ready sales: Sample marked `WEAK_SAMPLE`; cautionary note appended.
   - $\ge 15$ ready sales across $\ge 3$ distinct buildings: Sample marked `ROBUST`; verified gap formula $1 - (\text{target\_psf} / \text{median\_ready\_psf})$ permitted.
 
-### ADR 005: SQLite as Phase 2 Database (Postgres-ready Migration Path)
-- **Context:** Project plan specifies PostgreSQL + Drizzle, but the dev/pilot environment is a single VPS on Coolify without a separate Postgres container overhead.
-- **Decision:** Use SQLite via `better-sqlite3` + Drizzle ORM for Phase 2–3. Schema and all queries are written to be PostgreSQL-compatible (no SQLite-specific syntax). Migration to Postgres requires only swapping the Drizzle driver and connection string.
-- **Rule:** No SQLite-specific functions in queries. WAL mode enabled. Foreign keys enforced.
+### ADR 005: SQLite as Phase 2 Database (Architectural Deviation from PostgreSQL)
+- **Context:** The original architectural plan specified PostgreSQL + Drizzle. In early implementation, SQLite (`better-sqlite3` + Drizzle ORM) was adopted for single-VPS hosting without a separate container overhead.
+- **Decision:** SQLite serves as the Phase 0–3 operational store.
+- **Deviation & Migration Reality:** Contrary to earlier assumptions, this is an explicit deviation rather than a drop-in replacement: `db/schema.ts` uses `sqliteTable` and SQLite-specific SQL fragments (such as `datetime('now')`), and `src/server/db.ts` applies SQLite-specific PRAGMAs (`WAL`, `synchronous = NORMAL`, `foreign_keys = ON`). A future migration to PostgreSQL will require a dedicated schema refactor, type conversions (e.g. integer timestamps/timestamptz), data migration scripts, and query verification, rather than a mere driver swap.
+- **Rule:** Enforce foreign keys. Avoid undocumented raw SQL dialects.
 
 ### ADR 006: Data Access Layer (DAL) Isolation
 - **Context:** Server-side data access must never leak into client components. All database queries must pass through explicit authorization in future phases.
@@ -59,7 +60,7 @@
 ### ADR 008: AI Integration Boundary (Google Gemini 2.5 Flash for Narrative Synthesis)
 - **Context:** Sections 16, 19, and 27 explicitly forbid LLMs from calculating or estimating financial/statistical numbers, but allow server-side AI adapters to synthesize textual arguments and commentaries based on whitelisted facts.
 - **Decision:** 
-  - Google Gemini API key (`AQ.Ab8RN6I7x1QLFWVhUCJo1pfTu9wu_EkjJRvzuar3x57Snf6XFw`) connects to model `gemini-2.5-flash`.
+  - Google Gemini API connects to model `gemini-2.5-flash` via server-side environment variables `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY`. No credential literals are stored in code or documentation.
   - Input to Gemini is strictly restricted to verified deterministic facts (project names, verified prices, median PSF, gap %, bedrooms, handover dates, and rule-based explanations).
   - Temperature is set to 0.2 with strict schema enforcement (JSON response with `summary` and `keyTakeaway`).
   - Graceful deterministic fallback ensures zero downtime if offline, rate-limited, or network unavailable.
@@ -180,7 +181,16 @@
 - **Test 43 (Phase 7):** Real-world calibration over 10 DLD projects spanning multiple construction stages &rarr; **PASSED**
 - **Test 44 (Phase 7):** End-to-end A4 PDF generation via Playwright headless Chromium for 3 real client dossiers &rarr; **PASSED**
 - **Test 45 (Phase 7):** Live generation of 5 bilingual RU/AR Reels packages with metric ID validation &rarr; **PASSED**
-- **Test 46 (Phase 7):** SQLite live hot-backup and PRAGMA integrity_check drill (100% data fidelity) &rarr; **PASSED**
-- **Test 47 (Phase 7):** End-to-end interactive UI walkthrough across all routes and buttons with 0 runtime errors &rarr; **PASSED**
-- **All Unit Tests:** 60 / 60 passing (0 failures across 6 suites). Production build: 0 errors (all routes verified).
+### ADR 013: Authoritative DLD Ingestion Contract Boundary & Deprecation of Legacy Sync Scripts
+- **Context:** Multiple competing scripts (`sync_duckdb_to_sqlite.py`, `seed_from_duckdb.py`, `link_transactions_to_projects.py`, and `src/server/adapters/dld/dld-adapter.ts`) had divergent field mappings, defaulted missing values (asserting "residential" and "new"), confused `project_number` with `project_id` (generating 287k dangling links), and performed unsafe ASCII-only regex name matching that collided 59 duplicate project names.
+- **Decision:**
+  1. **Single Authoritative Ingestion Path:** The TypeScript adapter (`src/server/adapters/dld/dld-adapter.ts`) is established as the sole authoritative ingestion and transformation boundary for market facts.
+  2. **Retirement of Conflicting Scripts:** `scripts/sync_duckdb_to_sqlite.py`, `scripts/seed_from_duckdb.py`, and `scripts/link_transactions_to_projects.py` are explicitly retired and gated against accidental execution to eliminate transformation drift.
+  3. **Exact Observed DLD Source Schema:** Payloads are validated against exact observed Open Data fields (`actual_worth`, `procedure_area`, `instance_date`, `annual_amount`, `actual_area`, `contract_start_date`, `no_of_prop`, `budget_year`, `service_cost`).
+  4. **Strict Unknown State Preservation:** Missing or unrecognized property usage, registration types, contract types, and bedrooms are preserved as `null`/unknown. Numeric studio `0` is strictly distinguished from missing (`null`). The billing unit of `service_cost` is not assumed to be AED/sqft without source confirmation.
+  5. **Canonical Project Identity & Crosswalk:** Canonical project records are keyed by DLD `project_id` (`proj_dld_<project_id>`). A verified crosswalk resolves `project_number` to `project_id`; unresolvable records remain explicitly unmatched to prevent dangling foreign keys.
+  6. **Safe Unicode Name Matching:** Normalization preserves Unicode (including Arabic characters). Multiple projects sharing a normalized name are never auto-assigned; they are routed to `match_queue` with `needs_review`.
+  7. **Replay, Correction & Audit:** Source rows without stable source keys are quarantined (no random UUID fallbacks). Identical replays are counted as skipped. Source corrections generate auditable revisions while pinned report snapshots remain immutable.
+
+- **Historical Test Log (2026-09-24 initial pilot suite):** 60 / 60 passing (0 failures across 6 suites). Note: See `docs/phase-improvement-review.md` for independent re-verification on 2026-09-26 where 62 passed and 3 local-database-dependent tests required contract remediation.
 

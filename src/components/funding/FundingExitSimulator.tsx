@@ -301,22 +301,22 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
   };
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-2xl space-y-8">
+    <div className="bg-white border border-slate-200/90 rounded-2xl p-6 lg:p-8 shadow-sm space-y-8">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <div className="p-2 rounded-xl bg-sky-50 border border-sky-100 text-sky-600 shadow-2xs">
               <Calculator className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 Funding &amp; Exit Scenario Engine
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-emerald-400">
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
                   Phase 4 Live (§9, §11, §12)
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Deterministic cashflows &bull; DLD fee schedule &bull; Delay stress testing &bull; Break-Even PSF &bull; Dual Exit XIRR
               </p>
             </div>
@@ -327,119 +327,119 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowShareModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg shadow-emerald-900/20 transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
           >
             <Share2 className="h-4 w-4" />
             <span>Copy Client Summary</span>
           </button>
 
-          <div className="bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2">
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Contract Price</span>
-            <div className="flex items-center gap-1 font-mono font-bold text-sm text-emerald-400">
-              <span>AED</span>
+          <div className="bg-slate-50 border border-slate-200/90 rounded-xl px-3.5 py-2">
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">Contract Price</span>
+            <div className="flex items-center gap-1 font-mono font-bold text-sm text-slate-900">
+              <span className="text-slate-500 text-xs">AED</span>
               <input
                 type="number"
                 step="50000"
                 value={contractPrice}
                 onChange={(e) => setContractPrice(Math.max(100000, Number(e.target.value)))}
-                className="bg-transparent border-none text-emerald-400 font-bold focus:outline-none w-28 text-sm"
+                className="bg-transparent border-none text-slate-900 font-bold focus:outline-none w-28 text-sm"
               />
             </div>
           </div>
 
-          <div className="bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2">
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Size (Sq.Ft.)</span>
+          <div className="bg-slate-50 border border-slate-200/90 rounded-xl px-3.5 py-2">
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">Size (Sq.Ft.)</span>
             <input
               type="number"
               value={areaSqft}
               onChange={(e) => setAreaSqft(Math.max(100, Number(e.target.value)))}
-              className="bg-transparent border-none text-slate-200 font-bold font-mono focus:outline-none w-20 text-sm"
+              className="bg-transparent border-none text-slate-900 font-bold font-mono focus:outline-none w-20 text-sm"
             />
           </div>
         </div>
       </div>
 
       {/* SECTION 1: MANDATORY DLD & TRANSACTION COSTS CALCULATOR */}
-      <div className="bg-slate-950/60 border border-slate-800/70 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-3">
+      <div className="bg-slate-50/60 border border-slate-200/90 rounded-xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/70 pb-3">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <Shield className="h-4 w-4 text-emerald-600" />
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
               1. Mandatory DLD &amp; Transaction Costs (§9, §11)
             </h3>
           </div>
-          <div className="text-xs text-slate-400">
-            Total Fees: <strong className="text-amber-400 font-mono">{formatAED(fees.totalTransactionFeesAED)}</strong> (
+          <div className="text-xs text-slate-500">
+            Total Fees: <strong className="text-slate-900 font-mono font-semibold">{formatAED(fees.totalTransactionFeesAED)}</strong> (
             {fees.feesPercentOfPrice.toFixed(2)}% of price)
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
-            <span className="text-slate-400 block text-[11px]">DLD Registration (4%)</span>
-            <div className="text-sm font-bold font-mono text-white mt-1">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+            <span className="text-slate-500 block text-[11px] font-medium">DLD Registration (4%)</span>
+            <div className="text-sm font-bold font-mono text-slate-900 mt-1 tabular-nums">
               {formatAED(fees.dldRegistrationFeeAED)}
             </div>
-            <span className="text-[10px] text-slate-500">Official Land Dept Transfer</span>
+            <span className="text-[10px] text-slate-400">Official Land Dept Transfer</span>
           </div>
 
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
-            <span className="text-slate-400 block text-[11px]">Title Deed / Oqood</span>
-            <div className="text-sm font-bold font-mono text-white mt-1">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+            <span className="text-slate-500 block text-[11px] font-medium">Title Deed / Oqood</span>
+            <div className="text-sm font-bold font-mono text-slate-900 mt-1 tabular-nums">
               {formatAED(fees.oqoodCertificateFeeAED)}
             </div>
-            <span className="text-[10px] text-slate-500">DLD Certificate Fee</span>
+            <span className="text-[10px] text-slate-400">DLD Certificate Fee</span>
           </div>
 
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
-            <span className="text-slate-400 block text-[11px]">Trustee Office Fee</span>
-            <div className="text-sm font-bold font-mono text-white mt-1">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+            <span className="text-slate-500 block text-[11px] font-medium">Trustee Office Fee</span>
+            <div className="text-sm font-bold font-mono text-slate-900 mt-1 tabular-nums">
               {formatAED(fees.totalTrusteeFeeAED)}
             </div>
-            <span className="text-[10px] text-slate-500">AED 4,000 + 5% VAT</span>
+            <span className="text-[10px] text-slate-400">AED 4,000 + 5% VAT</span>
           </div>
 
-          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3">
-            <span className="text-slate-400 block text-[11px]">Developer NOC Fee</span>
-            <div className="text-sm font-bold font-mono text-white mt-1">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+            <span className="text-slate-500 block text-[11px] font-medium">Developer NOC Fee</span>
+            <div className="text-sm font-bold font-mono text-slate-900 mt-1 tabular-nums">
               {formatAED(fees.developerNocFeeAED)}
             </div>
-            <span className="text-[10px] text-slate-500">Consent for Transfer</span>
+            <span className="text-[10px] text-slate-400">Consent for Transfer</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between bg-emerald-950/30 border border-emerald-800/30 rounded-xl p-3 text-xs">
-          <span className="text-emerald-300 font-medium">
+        <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-3 text-xs">
+          <span className="text-emerald-900 font-medium">
             Total Acquisition Capital Required (Contract Price + All Mandatory Fees):
           </span>
-          <span className="text-base font-bold font-mono text-emerald-400">
+          <span className="text-base font-bold font-mono text-emerald-800 tabular-nums">
             {formatAED(fees.totalAcquisitionCostAED)}
           </span>
         </div>
       </div>
 
       {/* SECTION 2: PAYMENT PLAN TIMELINE & DELAY STRESS TESTING */}
-      <div className="bg-slate-950/60 border border-slate-800/70 rounded-2xl p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/60 pb-3">
+      <div className="bg-slate-50/60 border border-slate-200/90 rounded-xl p-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/70 pb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-indigo-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <Calendar className="h-4 w-4 text-sky-600" />
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
               2. Payment Plan Timeline &amp; Delay Stress Testing (§9)
             </h3>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Payment Preset Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-800 text-xs">
-              <span className="text-slate-400 text-[11px]">Plan:</span>
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200/90 text-xs shadow-2xs">
+              <span className="text-slate-500 text-[11px] font-medium">Plan:</span>
               {(["60/40", "70/30", "80/20", "50/50", "40/60_post_handover"] as PaymentPlanPreset[]).map((preset) => (
                 <button
                   key={preset}
                   onClick={() => setPaymentPreset(preset)}
                   className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
                     paymentPreset === preset
-                      ? "bg-indigo-600 text-white shadow"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-sky-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                   }`}
                 >
                   {preset.replace("_post_handover", " PH")}
@@ -448,13 +448,13 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
             </div>
 
             {/* Delay Stress Testing Toggle */}
-            <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-800 text-xs">
-              <Sliders className="h-3.5 w-3.5 text-amber-400" />
-              <span className="text-slate-400 text-[11px]">Stress Delay:</span>
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200/90 text-xs shadow-2xs">
+              <Sliders className="h-3.5 w-3.5 text-sky-600" />
+              <span className="text-slate-500 text-[11px] font-medium">Stress Delay:</span>
               <button
                 onClick={() => setStressDelayMonths(0)}
                 className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                  stressDelayMonths === 0 ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
+                  stressDelayMonths === 0 ? "bg-slate-800 text-white" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
                 0m
@@ -462,7 +462,7 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
               <button
                 onClick={() => setStressDelayMonths(6)}
                 className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                  stressDelayMonths === 6 ? "bg-amber-500 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+                  stressDelayMonths === 6 ? "bg-amber-500 text-white font-bold" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
                 +6m
@@ -470,7 +470,7 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
               <button
                 onClick={() => setStressDelayMonths(12)}
                 className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
-                  stressDelayMonths === 12 ? "bg-amber-500 text-slate-950 font-bold" : "text-slate-400 hover:text-white"
+                  stressDelayMonths === 12 ? "bg-amber-500 text-white font-bold" : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
                 +12m
@@ -482,30 +482,30 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
         {/* Solvency Audit Alert */}
         <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
           solvencyResult.status === "PASSED"
-            ? "bg-emerald-950/30 text-emerald-200 border-emerald-800/40"
-            : "bg-amber-950/30 text-amber-200 border-amber-800/40"
+            ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+            : "bg-amber-50 text-amber-900 border-amber-200"
         }`}>
           <div className="flex items-center gap-2.5">
             {solvencyResult.status === "PASSED" ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
             )}
             <div>
               <span className="font-bold">Liquidity Headroom Deficit Check: </span>
               <span>{solvencyResult.statusReason}</span>
             </div>
           </div>
-          <span className="font-mono font-bold bg-slate-900 px-2.5 py-1 rounded border border-slate-800 text-[11px]">
+          <span className="font-mono font-bold bg-white px-2.5 py-1 rounded border border-slate-200 text-slate-800 text-[11px] shadow-2xs">
             Min Headroom: {formatAED(solvencyResult.minHeadroom)}
           </span>
         </div>
 
         {/* Milestones Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto bg-white rounded-xl border border-slate-200/80 shadow-2xs">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-400 bg-slate-900/60 font-semibold">
+              <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50/80 font-semibold">
                 <th className="py-2.5 px-3">Date</th>
                 <th className="py-2.5 px-3">Milestone Stage</th>
                 <th className="py-2.5 px-3">DLD Construction Linkage</th>
@@ -514,24 +514,24 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
                 <th className="py-2.5 px-3 text-center">Tied to Construction</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/50 font-mono">
+            <tbody className="divide-y divide-slate-100 font-mono">
               {paymentPlan.milestones.map((m, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/20 transition-colors">
-                  <td className="py-2.5 px-3 text-slate-300 font-semibold">{m.date}</td>
-                  <td className="py-2.5 px-3 font-sans text-white font-medium flex items-center gap-1.5">
-                    {m.isHandover && <Key className="h-3.5 w-3.5 text-amber-400" />}
+                <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-2.5 px-3 text-slate-700 font-semibold">{m.date}</td>
+                  <td className="py-2.5 px-3 font-sans text-slate-900 font-medium flex items-center gap-1.5">
+                    {m.isHandover && <Key className="h-3.5 w-3.5 text-amber-600" />}
                     {m.label}
                   </td>
-                  <td className="py-2.5 px-3 font-sans text-slate-400">{m.dldMilestone}</td>
-                  <td className="py-2.5 px-3 text-right text-indigo-300 font-semibold">{m.percent}%</td>
-                  <td className="py-2.5 px-3 text-right text-white font-bold">{formatAED(m.amountAED)}</td>
+                  <td className="py-2.5 px-3 font-sans text-slate-500">{m.dldMilestone}</td>
+                  <td className="py-2.5 px-3 text-right text-sky-700 font-semibold">{m.percent}%</td>
+                  <td className="py-2.5 px-3 text-right text-slate-900 font-bold">{formatAED(m.amountAED)}</td>
                   <td className="py-2.5 px-3 text-center font-sans">
                     {m.isConstructionTied ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950/50 text-blue-400 border border-blue-800/30">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 font-medium">
                         {stressDelayMonths > 0 ? `Delayed (+${stressDelayMonths}m)` : "Contingent"}
                       </span>
                     ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
                         Fixed
                       </span>
                     )}
@@ -546,13 +546,13 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
       {/* SECTION 3: STRATEGY ENGINE & ENHANCEMENTS */}
       <div className="space-y-4">
         {/* Strategy Tabs */}
-        <div className="flex border-b border-slate-800 gap-2">
+        <div className="flex border-b border-slate-200 gap-2">
           <button
             onClick={() => setActiveStrategyTab("comparison")}
             className={`flex items-center gap-2 py-3 px-5 text-sm font-bold border-b-2 transition-all cursor-pointer ${
               activeStrategyTab === "comparison"
-                ? "border-emerald-400 text-emerald-400 bg-emerald-500/5"
-                : "border-transparent text-slate-400 hover:text-white"
+                ? "border-sky-600 text-sky-700 bg-sky-50/50"
+                : "border-transparent text-slate-500 hover:text-slate-900"
             }`}
           >
             <Scale className="h-4 w-4" />
@@ -562,8 +562,8 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
             onClick={() => setActiveStrategyTab("assignment")}
             className={`flex items-center gap-2 py-3 px-5 text-sm font-bold border-b-2 transition-all cursor-pointer ${
               activeStrategyTab === "assignment"
-                ? "border-amber-400 text-amber-400 bg-amber-500/5"
-                : "border-transparent text-slate-400 hover:text-white"
+                ? "border-sky-600 text-sky-700 bg-sky-50/50"
+                : "border-transparent text-slate-500 hover:text-slate-900"
             }`}
           >
             <TrendingUp className="h-4 w-4" />
@@ -573,8 +573,8 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
             onClick={() => setActiveStrategyTab("rental")}
             className={`flex items-center gap-2 py-3 px-5 text-sm font-bold border-b-2 transition-all cursor-pointer ${
               activeStrategyTab === "rental"
-                ? "border-indigo-400 text-indigo-400 bg-indigo-500/5"
-                : "border-transparent text-slate-400 hover:text-white"
+                ? "border-sky-600 text-sky-700 bg-sky-50/50"
+                : "border-transparent text-slate-500 hover:text-slate-900"
             }`}
           >
             <Key className="h-4 w-4" />
@@ -587,93 +587,93 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Strategy A Card */}
-              <div className="bg-slate-950/80 border border-amber-800/40 rounded-3xl p-6 space-y-4 relative overflow-hidden flex flex-col justify-between">
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-6 space-y-4 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                      <TrendingUp className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                      <TrendingUp className="h-4 w-4 text-amber-600" />
                       Strategy A: Assignment Flip
                     </span>
-                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/40">
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
                       High Velocity Capital
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-white">Resale Prior to Handover</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <h3 className="text-lg font-bold text-slate-900">Resale Prior to Handover</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
                     Exit the transaction before completion once the required NOC threshold ({nocThreshold}%) is reached, transferring the remaining developer payment obligations to the new buyer.
                   </p>
 
-                  <div className="space-y-2 pt-3 border-t border-slate-800 text-xs font-mono">
-                    <div className="flex justify-between text-slate-400">
+                  <div className="space-y-2 pt-3 border-t border-slate-100 text-xs font-mono">
+                    <div className="flex justify-between text-slate-500">
                       <span>Capital Deployed:</span>
-                      <span className="text-white font-bold">{formatAED(assignmentAnalysis.scenarios[1]?.investedCashAED || 0)}</span>
+                      <span className="text-slate-900 font-bold">{formatAED(assignmentAnalysis.scenarios[1]?.investedCashAED || 0)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Break-Even PSF:</span>
-                      <span className="text-amber-400 font-bold">{formatAED(assignmentAnalysis.breakEvenPsfAED)} AED/sqft</span>
+                      <span className="text-amber-700 font-bold">{formatAED(assignmentAnalysis.breakEvenPsfAED)} AED/sqft</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Net Profit (+10% Exit):</span>
-                      <span className="text-emerald-400 font-bold">
+                      <span className="text-emerald-700 font-bold">
                         +{formatAED(assignmentAnalysis.scenarios[1]?.netProfitAED || 0)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Cash-on-Cash Period ROI:</span>
-                      <span className="text-emerald-400 font-bold">
+                      <span className="text-emerald-700 font-bold">
                         +{formatPercent(assignmentAnalysis.scenarios[1]?.cashOnCashRoiPercent || 0)}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-amber-950/20 border border-amber-900/30 rounded-2xl p-3 text-[11px] text-amber-200/90 mt-4">
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-900 mt-4 shadow-2xs">
                   <strong>Risk &amp; Liquidity Profile:</strong> Relies on secondary market buyer absorption prior to handover. Protected by low break-even buffer below ready comparables.
                 </div>
               </div>
 
               {/* Strategy B Card */}
-              <div className="bg-slate-950/80 border border-indigo-800/40 rounded-3xl p-6 space-y-4 relative overflow-hidden flex flex-col justify-between">
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-6 space-y-4 shadow-sm relative overflow-hidden flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                      <Key className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-sky-700 flex items-center gap-1.5">
+                      <Key className="h-4 w-4 text-sky-600" />
                       Strategy B: Handover &amp; Hold
                     </span>
-                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-800/40">
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-semibold">
                       Passive Cash Flow &amp; Equity
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-white">Completion &amp; Long-Term Lease</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <h3 className="text-lg font-bold text-slate-900">Completion &amp; Long-Term Lease</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
                     Settle 100% of purchase commitments, collect keys, fit out the apartment, and generate consistent annual yields backed by registered Ejari tenancy contracts.
                   </p>
 
-                  <div className="space-y-2 pt-3 border-t border-slate-800 text-xs font-mono">
-                    <div className="flex justify-between text-slate-400">
+                  <div className="space-y-2 pt-3 border-t border-slate-100 text-xs font-mono">
+                    <div className="flex justify-between text-slate-500">
                       <span>Total Capital Committed:</span>
-                      <span className="text-white font-bold">{formatAED(rentalAnalysis.rentalMetrics.totalAcquisitionCost)}</span>
+                      <span className="text-slate-900 font-bold">{formatAED(rentalAnalysis.rentalMetrics.totalAcquisitionCost)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Net Operating Income (NOI):</span>
-                      <span className="text-emerald-400 font-bold">{formatAED(rentalAnalysis.rentalMetrics.noi)}/year</span>
+                      <span className="text-emerald-700 font-bold">+{formatAED(rentalAnalysis.rentalMetrics.noi)}/year</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Net Rental Yield on Cost:</span>
-                      <span className="text-indigo-300 font-bold">{formatPercent(rentalAnalysis.rentalMetrics.netYieldOnCost)}</span>
+                      <span className="text-sky-700 font-bold">{formatPercent(rentalAnalysis.rentalMetrics.netYieldOnCost)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Annualized XIRR ({holdingYears}y Hold):</span>
-                      <span className="text-emerald-400 font-bold text-sm">
+                      <span className="text-emerald-700 font-bold text-sm">
                         {rentalAnalysis.xirrResult.xirrPercent ? formatPercent(rentalAnalysis.xirrResult.xirrPercent) : "—"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-indigo-950/20 border border-indigo-900/30 rounded-2xl p-3 text-[11px] text-indigo-200/90 mt-4">
+                <div className="bg-sky-50/70 border border-sky-200/80 rounded-xl p-3 text-[11px] text-sky-950 mt-4 shadow-2xs">
                   <strong>Risk &amp; Liquidity Profile:</strong> Requires full capital outlay; generates defensive cashflows and long-term capital preservation against inflation.
                 </div>
               </div>
@@ -687,13 +687,13 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
             {/* Top Bar: NOC Threshold & Break-Even Metric */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* NOC Eligibility Card */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 space-y-3 shadow-2xs">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-400 font-medium">Developer NOC Threshold</span>
+                  <span className="text-slate-500 font-medium">Developer NOC Threshold</span>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                     assignmentAnalysis.eligibility.isEligible
-                      ? "bg-emerald-950/40 text-emerald-400 border-emerald-800/40"
-                      : "bg-amber-950/40 text-amber-400 border-amber-800/40"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-amber-50 text-amber-800 border-amber-200"
                   }`}>
                     {assignmentAnalysis.eligibility.status}
                   </span>
@@ -701,8 +701,8 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Paid to Developer:</span>
-                    <span className="font-mono font-bold text-white">{paidPercentSlider}% ({formatAED(currentPaidCapital)})</span>
+                    <span className="text-slate-500">Paid to Developer:</span>
+                    <span className="font-mono font-bold text-slate-900">{paidPercentSlider}% ({formatAED(currentPaidCapital)})</span>
                   </div>
                   <input
                     type="range"
@@ -711,16 +711,16 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
                     step="5"
                     value={paidPercentSlider}
                     onChange={(e) => setPaidPercentSlider(Number(e.target.value))}
-                    className="w-full accent-amber-500 cursor-pointer"
+                    className="w-full accent-sky-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[10px] text-slate-500">
+                  <div className="flex justify-between text-[10px] text-slate-400">
                     <span>NOC requirement: {nocThreshold}%</span>
                     <span>100% Handover</span>
                   </div>
                 </div>
 
                 {!assignmentAnalysis.eligibility.isEligible && (
-                  <div className="bg-amber-950/30 border border-amber-800/30 rounded-xl p-2.5 text-[11px] text-amber-300">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-[11px] text-amber-900 shadow-2xs">
                     <strong>NOC Bridge Top-Up: </strong>
                     An additional <strong>{formatAED(assignmentAnalysis.topupRequiredAED)}</strong> must be paid to developer to issue the NOC for transfer.
                   </div>
@@ -728,63 +728,63 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
               </div>
 
               {/* Exact Break-Even Resale Price */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 flex flex-col justify-between shadow-2xs">
                 <div>
-                  <span className="text-[11px] text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[11px] text-slate-500 uppercase tracking-wider block font-medium">
                     Break-Even Resale Price
                   </span>
-                  <div className="text-2xl font-bold font-mono text-amber-400 mt-1">
+                  <div className="text-2xl font-bold font-mono text-slate-900 mt-1 tabular-nums">
                     {formatAED(assignmentAnalysis.breakEvenResalePriceAED)}
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     Recovers full purchase price, {formatAED(fees.totalTransactionFeesAED)} acquisition costs, NOC fee &amp; 2% agency commission.
                   </p>
                 </div>
-                <div className="text-[10px] text-slate-400 border-t border-slate-800/60 pt-2">
+                <div className="text-[10px] text-slate-400 border-t border-slate-100 pt-2 font-medium">
                   Net Profit = 0 at this price point.
                 </div>
               </div>
 
               {/* Break-Even PSF */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 flex flex-col justify-between shadow-2xs">
                 <div>
-                  <span className="text-[11px] text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[11px] text-slate-500 uppercase tracking-wider block font-medium">
                     Break-Even PSF
                   </span>
-                  <div className="text-2xl font-bold font-mono text-white mt-1">
+                  <div className="text-2xl font-bold font-mono text-slate-900 mt-1 tabular-nums">
                     {formatAED(assignmentAnalysis.breakEvenPsfAED)}{" "}
-                    <span className="text-xs font-normal text-slate-400">AED/sqft</span>
+                    <span className="text-xs font-normal text-slate-500">AED/sqft</span>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     Compare this with ready comps median to evaluate downside buffer.
                   </p>
                 </div>
-                <div className="text-[10px] text-emerald-400 border-t border-slate-800/60 pt-2 font-mono">
+                <div className="text-[10px] text-emerald-700 border-t border-slate-100 pt-2 font-mono font-medium">
                   Base asking: {formatAED(contractPrice / areaSqft)} AED/sqft
                 </div>
               </div>
             </div>
 
             {/* WHAT-IF & TARGET ROI SOLVER */}
-            <div className="bg-slate-950/90 border border-indigo-800/40 rounded-2xl p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/70 pb-3">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-indigo-400" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                  <Sparkles className="h-4 w-4 text-sky-600" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                     Interactive "What-If" Target Resale &amp; Target ROI Solver
                   </h4>
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-500">
                   Analytical root solver for custom client target returns
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Custom PSF Slider */}
-                <div className="space-y-3 bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+                <div className="space-y-3 bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-300 font-medium">Custom Resale PSF Target:</span>
-                    <span className="font-mono font-bold text-amber-400 text-sm">{customResalePsf} AED/sqft</span>
+                    <span className="text-slate-700 font-medium">Custom Resale PSF Target:</span>
+                    <span className="font-mono font-bold text-sky-700 text-sm">{customResalePsf} AED/sqft</span>
                   </div>
                   <input
                     type="range"
@@ -793,25 +793,25 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
                     step="25"
                     value={customResalePsf}
                     onChange={(e) => setCustomResalePsf(Number(e.target.value))}
-                    className="w-full accent-amber-500 cursor-pointer"
+                    className="w-full accent-sky-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-xs font-mono text-slate-400 pt-1 border-t border-slate-800">
-                    <span>Resale Price: <strong className="text-white">{formatAED(customTargetPriceAED)}</strong></span>
-                    <span>Growth: <strong className="text-emerald-400">{((customTargetPriceAED / contractPrice - 1) * 100).toFixed(1)}%</strong></span>
+                  <div className="flex justify-between text-xs font-mono text-slate-500 pt-1 border-t border-slate-100">
+                    <span>Resale Price: <strong className="text-slate-900 font-semibold">{formatAED(customTargetPriceAED)}</strong></span>
+                    <span>Growth: <strong className="text-emerald-700 font-semibold">+{((customTargetPriceAED / contractPrice - 1) * 100).toFixed(1)}%</strong></span>
                   </div>
                 </div>
 
                 {/* Target ROI Solver */}
-                <div className="space-y-3 bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+                <div className="space-y-3 bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-300 font-medium">Target Cash-on-Cash ROI:</span>
+                    <span className="text-slate-700 font-medium">Target Cash-on-Cash ROI:</span>
                     <div className="flex items-center gap-1.5">
                       {[15, 25, 35].map((roi) => (
                         <button
                           key={roi}
                           onClick={() => setTargetRoiInput(roi)}
                           className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                            targetRoiInput === roi ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400"
+                            targetRoiInput === roi ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                         >
                           {roi}%
@@ -821,20 +821,20 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
                         type="number"
                         value={targetRoiInput}
                         onChange={(e) => setTargetRoiInput(Number(e.target.value))}
-                        className="bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-xs text-white font-mono w-14 text-center"
+                        className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-xs text-slate-900 font-mono w-14 text-center font-bold"
                       />
                       <span className="text-slate-400 text-xs">%</span>
                     </div>
                   </div>
 
-                  <div className="text-xs font-mono space-y-1 pt-1 border-t border-slate-800">
-                    <div className="flex justify-between text-slate-400">
+                  <div className="text-xs font-mono space-y-1 pt-1 border-t border-slate-100">
+                    <div className="flex justify-between text-slate-500">
                       <span>Required Resale Price:</span>
-                      <span className="text-white font-bold">{formatAED(solvedForTargetRoi.targetResalePriceAED)}</span>
+                      <span className="text-slate-900 font-bold">{formatAED(solvedForTargetRoi.targetResalePriceAED)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Required Resale PSF:</span>
-                      <span className="text-indigo-400 font-bold">{formatAED(solvedForTargetRoi.targetResalePsfAED)} AED/sqft</span>
+                      <span className="text-sky-700 font-bold">{formatAED(solvedForTargetRoi.targetResalePsfAED)} AED/sqft</span>
                     </div>
                   </div>
                 </div>
@@ -846,53 +846,53 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
               {assignmentAnalysis.scenarios.map((sc, idx) => (
                 <div
                   key={idx}
-                  className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-5 flex flex-col justify-between space-y-4"
+                  className="bg-white border border-slate-200/90 rounded-xl p-5 flex flex-col justify-between space-y-4 shadow-2xs"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
                         sc.appreciationPercent < 0
-                          ? "bg-red-950/40 text-red-400 border-red-800/40"
+                          ? "bg-rose-50 text-rose-700 border-rose-200"
                           : sc.appreciationPercent === 10
-                          ? "bg-blue-950/40 text-blue-400 border-blue-800/40"
-                          : "bg-emerald-950/40 text-emerald-400 border-emerald-800/40"
+                          ? "bg-sky-50 text-sky-700 border-sky-200"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
                       }`}>
                         {sc.label}
                       </span>
-                      <span className="text-xs font-mono font-bold text-slate-300">
+                      <span className="text-xs font-mono font-bold text-slate-900 tabular-nums">
                         {formatAED(sc.resalePriceAED)}
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-400 font-mono">
-                      Resale PSF: <strong className="text-white">{formatAED(sc.resalePsfAED)}</strong> AED/sqft
+                    <div className="text-xs text-slate-500 font-mono">
+                      Resale PSF: <strong className="text-slate-900">{formatAED(sc.resalePsfAED)}</strong> AED/sqft
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-xs font-mono border-t border-slate-800/80 pt-3">
-                    <div className="flex justify-between text-slate-400">
+                  <div className="space-y-2 text-xs font-mono border-t border-slate-100 pt-3">
+                    <div className="flex justify-between text-slate-500">
                       <span>Buyer Assumed Debt:</span>
-                      <span className="text-slate-300">{formatAED(sc.outstandingBalanceAED)}</span>
+                      <span className="text-slate-800">{formatAED(sc.outstandingBalanceAED)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Seller Net Receipt:</span>
-                      <span className="text-slate-300">{formatAED(sc.sellerReceiptAED)}</span>
+                      <span className="text-slate-800">{formatAED(sc.sellerReceiptAED)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-400">
+                    <div className="flex justify-between text-slate-500">
                       <span>Invested Cash (A+C):</span>
-                      <span className="text-slate-300">{formatAED(sc.investedCashAED)}</span>
+                      <span className="text-slate-800">{formatAED(sc.investedCashAED)}</span>
                     </div>
 
-                    <div className="flex justify-between pt-2 border-t border-slate-800 text-sm font-bold">
-                      <span className="text-slate-200">Net Profit:</span>
-                      <span className={sc.netProfitAED.greaterThan(0) ? "text-emerald-400" : "text-red-400"}>
+                    <div className="flex justify-between pt-2 border-t border-slate-100 text-sm font-bold">
+                      <span className="text-slate-700">Net Profit:</span>
+                      <span className={sc.netProfitAED.greaterThan(0) ? "text-emerald-700" : "text-rose-700"}>
                         {formatAED(sc.netProfitAED)}
                       </span>
                     </div>
 
                     <div className="flex justify-between font-bold">
-                      <span className="text-slate-200">Cash-on-Cash ROI:</span>
-                      <span className={sc.cashOnCashRoiPercent.greaterThan(0) ? "text-emerald-400" : "text-red-400"}>
+                      <span className="text-slate-700">Cash-on-Cash ROI:</span>
+                      <span className={sc.cashOnCashRoiPercent.greaterThan(0) ? "text-emerald-700" : "text-rose-700"}>
                         {formatPercent(sc.cashOnCashRoiPercent)}
                       </span>
                     </div>
@@ -909,13 +909,13 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
             {/* Furnishing Pack Toggle & Rental Inputs */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Furnishing Toggle Card */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 space-y-2 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Furnishing Pack</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">Furnishing Pack</span>
                   <button
                     onClick={() => setIsFurnished(!isFurnished)}
                     className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                      isFurnished ? "bg-emerald-600 text-white" : "bg-slate-800 text-slate-400"
+                      isFurnished ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"
                     }`}
                   >
                     {isFurnished ? "✓ Furnished" : "Unfurnished"}
@@ -923,75 +923,75 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
                 </div>
                 {isFurnished ? (
                   <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-sm font-mono text-emerald-400 font-bold">
+                    <div className="flex items-center gap-1 text-sm font-mono text-emerald-700 font-bold">
                       <span>+AED</span>
                       <input
                         type="number"
                         value={furnishingCost}
                         onChange={(e) => setFurnishingCost(Number(e.target.value))}
-                        className="bg-transparent border-none text-emerald-400 font-bold w-20 text-sm"
+                        className="bg-transparent border-none text-emerald-700 font-bold w-20 text-sm"
                       />
                     </div>
-                    <span className="text-[10px] text-slate-500 block">+15% rental premium applied</span>
+                    <span className="text-[10px] text-slate-400 block">+15% rental premium applied</span>
                   </div>
                 ) : (
-                  <span className="text-xs text-slate-500 block pt-1">Standard unfurnished long-term lease</span>
+                  <span className="text-xs text-slate-400 block pt-1">Standard unfurnished long-term lease</span>
                 )}
               </div>
 
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Gross Annual Rent</span>
-                <div className="flex items-center gap-1 font-mono font-bold text-lg text-emerald-400 mt-1">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">Gross Annual Rent</span>
+                <div className="flex items-center gap-1 font-mono font-bold text-lg text-emerald-700 mt-1">
                   <span>AED</span>
                   <input
                     type="number"
                     step="5000"
                     value={grossRentAed}
                     onChange={(e) => setGrossRentAed(Number(e.target.value))}
-                    className="bg-transparent border-none text-emerald-400 font-bold focus:outline-none w-28 text-lg"
+                    className="bg-transparent border-none text-emerald-700 font-bold focus:outline-none w-28 text-lg"
                   />
                 </div>
-                <span className="text-[10px] text-slate-500">Effective: {formatAED(effectiveGrossRent)}</span>
+                <span className="text-[10px] text-slate-400">Effective: {formatAED(effectiveGrossRent)}</span>
               </div>
 
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Service Charge (DLD OA)</span>
-                <div className="flex items-center gap-1 font-mono font-bold text-lg text-white mt-1">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">Service Charge (DLD OA)</span>
+                <div className="flex items-center gap-1 font-mono font-bold text-lg text-slate-900 mt-1">
                   <span>AED</span>
                   <input
                     type="number"
                     value={serviceChargePerSqft}
                     onChange={(e) => setServiceChargePerSqft(Number(e.target.value))}
-                    className="bg-transparent border-none text-white font-bold focus:outline-none w-14 text-lg"
+                    className="bg-transparent border-none text-slate-900 font-bold focus:outline-none w-14 text-lg"
                   />
-                  <span className="text-xs text-slate-400">/sqft</span>
+                  <span className="text-xs text-slate-400 font-normal">/sqft</span>
                 </div>
-                <span className="text-[10px] text-slate-500">Total: {formatAED(annualServiceChargeTotal)}/yr</span>
+                <span className="text-[10px] text-slate-400">Total: {formatAED(annualServiceChargeTotal)}/yr</span>
               </div>
 
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Net Yield on Total Cost</span>
-                <div className="text-2xl font-bold font-mono text-indigo-400 mt-1">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">Net Yield on Total Cost</span>
+                <div className="text-2xl font-bold font-mono text-sky-700 mt-1 tabular-nums">
                   {formatPercent(rentalAnalysis.rentalMetrics.netYieldOnCost)}
                 </div>
-                <span className="text-[10px] text-slate-500">NOI / Total Deployed Capital</span>
+                <span className="text-[10px] text-slate-400">NOI / Total Deployed Capital</span>
               </div>
             </div>
 
             {/* Post-Handover Rental Offset (Self-Funding Analysis) */}
             {paymentPlan.postHandoverPercent > 0 && (
-              <div className="bg-slate-950/90 border border-emerald-800/40 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+              <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <Coins className="h-4 w-4 text-emerald-400" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                    <Coins className="h-4 w-4 text-emerald-600" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-950">
                       Post-Handover Rental Offset ("Self-Funding" Ratio)
                     </h4>
                   </div>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
                     postHandoverOffset.isSelfFunding
-                      ? "bg-emerald-950/60 text-emerald-300 border-emerald-800/40"
-                      : "bg-blue-950/60 text-blue-300 border-blue-800/40"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : "bg-sky-50 text-sky-800 border-sky-200"
                   }`}>
                     {postHandoverOffset.isSelfFunding ? "100% Self-Funding" : "Partial Rental Coverage"}
                   </span>
@@ -999,22 +999,22 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
                   <div>
-                    <span className="text-slate-500 text-[11px] block">Post-Handover Installment:</span>
-                    <span className="text-white font-bold">{formatAED(postHandoverAnnualInstallments)}/year</span>
+                    <span className="text-emerald-800/80 text-[11px] block font-sans">Post-Handover Installment:</span>
+                    <span className="text-slate-900 font-bold">{formatAED(postHandoverAnnualInstallments)}/year</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[11px] block">Net Rental Income (NOI):</span>
-                    <span className="text-emerald-400 font-bold">{formatAED(rentalAnalysis.rentalMetrics.noi)}/year</span>
+                    <span className="text-emerald-800/80 text-[11px] block font-sans">Net Rental Income (NOI):</span>
+                    <span className="text-emerald-700 font-bold">{formatAED(rentalAnalysis.rentalMetrics.noi)}/year</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-[11px] block">Rental Installment Coverage:</span>
-                    <span className="text-amber-400 font-bold text-sm">
+                    <span className="text-emerald-800/80 text-[11px] block font-sans">Rental Installment Coverage:</span>
+                    <span className="text-slate-900 font-bold text-sm">
                       {postHandoverOffset.rentalCoveragePercent.toFixed(1)}%
                     </span>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
+                <p className="text-[11px] text-emerald-900/90 leading-relaxed pt-1">
                   {postHandoverOffset.isSelfFunding
                     ? `Rental income completely covers developer post-handover obligations with a positive surplus of ${formatAED(postHandoverOffset.surplusAnnualAED)}/year!`
                     : `Incoming rental income covers ${postHandoverOffset.rentalCoveragePercent.toFixed(1)}% of installments. The investor only needs an out-of-pocket top-up of ${formatAED(postHandoverOffset.netInvestorAnnualOutlayAED)}/year.`}
@@ -1023,25 +1023,25 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
             )}
 
             {/* Hold Horizon & Pure XIRR Calculation */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/60 pb-3">
+            <div className="bg-slate-50/70 border border-slate-200/90 rounded-xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/70 pb-3">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-indigo-400" />
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                  <Clock className="h-4 w-4 text-sky-600" />
+                  <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                     Long-Term Hold &amp; Internal Rate of Return (XIRR)
                   </h4>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Holding Period:</span>
+                  <span className="text-xs text-slate-500 font-medium">Holding Period:</span>
                   {([1, 3, 5] as const).map((years) => (
                     <button
                       key={years}
                       onClick={() => setHoldingYears(years)}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                         holdingYears === years
-                          ? "bg-indigo-600 text-white shadow"
-                          : "bg-slate-900 text-slate-400 hover:text-white"
+                          ? "bg-sky-600 text-white shadow-2xs"
+                          : "bg-white border border-slate-200 text-slate-600 hover:text-slate-900"
                       }`}
                     >
                       {years} Year{years > 1 ? "s" : ""}
@@ -1052,36 +1052,36 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
 
               {/* Metrics Showcase */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-                  <span className="text-[11px] text-slate-400 block">Annual Net Operating Income (NOI)</span>
-                  <div className="text-xl font-bold font-mono text-white mt-1">
+                <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs">
+                  <span className="text-[11px] text-slate-500 block font-medium">Annual Net Operating Income (NOI)</span>
+                  <div className="text-xl font-bold font-mono text-slate-900 mt-1 tabular-nums">
                     {formatAED(rentalAnalysis.rentalMetrics.noi)}
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-slate-400 mt-1">
                     Effective Rent ({formatAED(rentalAnalysis.rentalMetrics.effectiveRent)}) minus Expenses ({formatAED(rentalAnalysis.rentalMetrics.operatingExpenses)})
                   </p>
                 </div>
 
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-                  <span className="text-[11px] text-slate-400 block">Terminal Sale Price (after {holdingYears}y @ 3% p.a.)</span>
-                  <div className="text-xl font-bold font-mono text-white mt-1">
+                <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs">
+                  <span className="text-[11px] text-slate-500 block font-medium">Terminal Sale Price (after {holdingYears}y @ 3% p.a.)</span>
+                  <div className="text-xl font-bold font-mono text-slate-900 mt-1 tabular-nums">
                     {formatAED(rentalAnalysis.terminalResalePriceAED)}
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-slate-400 mt-1">
                     Net liquidation receipt: {formatAED(rentalAnalysis.terminalNetExitReceiptAED)}
                   </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-indigo-950/60 to-slate-900 border border-indigo-800/40 rounded-xl p-4">
-                  <span className="text-[11px] text-indigo-300 font-semibold block uppercase tracking-wider">
+                <div className="bg-sky-50/80 border border-sky-200/80 rounded-xl p-4 shadow-2xs">
+                  <span className="text-[11px] text-sky-800 font-semibold block uppercase tracking-wider">
                     Annualized Internal Rate of Return (XIRR)
                   </span>
-                  <div className="text-3xl font-extrabold font-mono text-emerald-400 mt-1">
+                  <div className="text-3xl font-extrabold font-mono text-emerald-700 mt-1 tabular-nums">
                     {rentalAnalysis.xirrResult.xirrPercent
                       ? formatPercent(rentalAnalysis.xirrResult.xirrPercent)
                       : "—"}
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-sky-700 mt-1">
                     Deterministic NPV=0 root solver across dated acquisition, rental flows, and liquidation.
                   </p>
                 </div>
@@ -1093,30 +1093,30 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
 
       {/* SHARE / EXPORT MODAL */}
       {showShareModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-xl w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Share2 className="h-5 w-5 text-emerald-400" />
-                <h3 className="font-bold text-white text-base">Client Investment Summary</h3>
+                <Share2 className="h-5 w-5 text-sky-600" />
+                <h3 className="font-bold text-slate-900 text-base">Client Investment Summary</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShareLanguage(shareLanguage === "RU" ? "EN" : "RU")}
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700"
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
                 >
                   {shareLanguage === "RU" ? "🇷🇺 Русский" : "🇬🇧 English"}
                 </button>
                 <button
                   onClick={() => setShowShareModal(false)}
-                  className="text-slate-400 hover:text-white text-sm font-bold px-2 py-1"
+                  className="text-slate-400 hover:text-slate-700 text-sm font-bold px-2 py-1"
                 >
                   ✕
                 </button>
               </div>
             </div>
 
-            <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800/80 text-xs text-slate-300 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto leading-relaxed select-all">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-800 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto leading-relaxed select-all">
               {shareMessageText}
             </div>
 
@@ -1126,7 +1126,7 @@ _Generated via Dubai Off-Plan Research Desk (DLD Open Data Verified)._`;
               </span>
               <button
                 onClick={handleCopyShare}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all active:scale-95"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition-all active:scale-95 shadow-xs"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 {copied ? "Copied to Clipboard!" : "Copy Message"}

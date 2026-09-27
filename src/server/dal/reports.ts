@@ -12,14 +12,20 @@ import {
   DualReelsScript,
   generateReelsScript,
 } from "@/domain/content/content-studio";
-import { getProjectById, getProjectUnitTypes, getCmaAnalysisForProject } from "@/server/dal/catalog";
+import {
+  getProjectById,
+  getProjectUnitTypes,
+  getCmaAnalysisForProject,
+  getProjectRecentTransactions,
+  getProjectResaleChains,
+} from "@/server/dal/catalog";
 import { getDeveloperById } from "@/server/dal/developers";
 import { getClusterPipelineAnalysis } from "@/server/dal/pipeline";
-import { calculateTransactionCosts } from "@/domain/funding/transaction-costs";
 import {
   evaluateAssignmentResale,
   evaluateHandoverAndHold,
 } from "@/domain/exit/exit-scenario-engine";
+import { generateDossierSynthesis } from "@/server/adapters/ai/gemini-adapter";
 
 export interface CreateReportSnapshotInput {
   projectId: string;
@@ -30,11 +36,11 @@ export interface CreateReportSnapshotInput {
 }
 
 export async function createReportSnapshot(input: CreateReportSnapshotInput) {
-  const [project, unitTypes, cmaData, pipelineAnalysis] = await Promise.all([
+  const [project, unitTypes, pipelineAnalysis, resaleChains] = await Promise.all([
     getProjectById(input.projectId),
     getProjectUnitTypes(input.projectId),
-    getCmaAnalysisForProject({ projectId: input.projectId, bedrooms: 1 }),
     getClusterPipelineAnalysis(input.projectId),
+    getProjectResaleChains({ projectId: input.projectId, minConfidence: 90 }).catch(() => null),
   ]);
 
   if (!project) {
@@ -63,9 +69,24 @@ export async function createReportSnapshot(input: CreateReportSnapshotInput) {
       minPaidPctForNoc: 34,
     };
 
+  const unitBedrooms = unit.bedrooms !== null && unit.bedrooms !== undefined ? unit.bedrooms : 1;
   const priceAed = unit.netPriceAed || unit.listPriceAed || 1800000;
   const areaSqft = unit.areaSqftMin || unit.areaSqftMax || 850;
   const pricePsf = Math.round(priceAed / areaSqft);
+
+  const [cmaData, recentTransactions] = await Promise.all([
+    getCmaAnalysisForProject({
+      projectId: input.projectId,
+      bedrooms: unitBedrooms,
+      customTargetPriceAed: priceAed,
+      customTargetAreaSqft: areaSqft,
+    }),
+    getProjectRecentTransactions({
+      projectId: input.projectId,
+      bedrooms: unitBedrooms,
+      limit: 10,
+    }).catch(() => null),
+  ]);
 
   // Financial Exit models using domain modules
   const rawCosts = calculateTransactionCosts({ contractPrice: priceAed });
@@ -115,7 +136,7 @@ export async function createReportSnapshot(input: CreateReportSnapshotInput) {
     developerBrandAr: null,
     areaNameEn: project.areaNameEn || "Dubai",
     areaNameAr: null,
-    bedrooms: unit.bedrooms !== null ? unit.bedrooms : 1,
+    bedrooms: unitBedrooms,
     areaSqft,
     priceAed,
     pricePsfAed: pricePsf,
@@ -136,6 +157,37 @@ export async function createReportSnapshot(input: CreateReportSnapshotInput) {
 
   const dualScript = generateReelsScript(studioFacts);
 
+  let aiSynthesis = null;
+  try {
+    aiSynthesis = await generateDossierSynthesis({
+      projectName: project.nameEn,
+      projectNameAr: project.nameAr,
+      developerName: project.developerBrandName || "Developer",
+      areaName: project.areaNameEn || "Dubai",
+      bedrooms: unitBedrooms,
+      unitPriceAed: priceAed,
+      unitAreaSqft: areaSqft,
+      unitPsf: pricePsf,
+      expectedHandoverDate: project.expectedHandoverDate || undefined,
+      readyMedianPsf: studioFacts.cmaReadyMedianPsf,
+      readyDealsCount: cmaData.cma.readyGroup.count,
+      gapToReadyPercent: studioFacts.cmaGapReadyPct,
+      offPlanMedianPsf: cmaData.cma.offPlanGroup.medianPsf ? cmaData.cma.offPlanGroup.medianPsf.toNumber() : null,
+      offPlanDealsCount: cmaData.cma.offPlanGroup.count,
+      gapToOffPlanPercent: cmaData.cma.gapToOffPlanPercent ? cmaData.cma.gapToOffPlanPercent.toNumber() : null,
+      nearHandoverMedianPsf: cmaData.cma.nearHandoverGroup.medianPsf ? cmaData.cma.nearHandoverGroup.medianPsf.toNumber() : null,
+      nearHandoverDealsCount: cmaData.cma.nearHandoverGroup.count,
+      nocThresholdPercent: unit.minPaidPctForNoc || 34,
+      breakEvenPsfAed: studioFacts.flipBreakEvenPsf,
+      flipRoiPct: studioFacts.flipBaselineRoiPct,
+      holdYieldPct: studioFacts.holdNetYieldPct,
+      competingCollisionCount: studioFacts.competingCollisionCount,
+      developerAvgDelayDays: studioFacts.developerAvgDelayDays,
+    }, input.locale);
+  } catch (err) {
+    console.warn("Failed to generate initial AI synthesis for snapshot:", err);
+  }
+
   const payload = {
     metadata: {
       generatedAt: new Date().toISOString(),
@@ -147,6 +199,7 @@ export async function createReportSnapshot(input: CreateReportSnapshotInput) {
     },
     project,
     unit,
+    unitTypes,
     cma: cmaData.cma,
     pipeline: pipelineAnalysis,
     developer: developerTrackRecord?.trackRecord || null,
@@ -158,6 +211,9 @@ export async function createReportSnapshot(input: CreateReportSnapshotInput) {
     },
     studioFacts,
     dualScript,
+    resaleChains,
+    recentTransactions,
+    aiSynthesis,
   };
 
   const snapshotHash = generateReportSnapshotHash(payload);
@@ -194,10 +250,112 @@ export async function getReportSnapshotById(snapshotId: string) {
 
   if (!snapshot) return null;
 
-  return {
-    ...snapshot,
-    payload: JSON.parse(snapshot.payloadJson),
-  };
+  const rawPayload = JSON.parse(snapshot.payloadJson);
+  const projectId = snapshot.projectId || rawPayload.project?.id;
+  const bedrooms = rawPayload.unit?.bedrooms !== null && rawPayload.unit?.bedrooms !== undefined ? rawPayload.unit.bedrooms : 1;
+  const unitPrice = rawPayload.unit?.netPriceAed || rawPayload.unit?.listPriceAed || undefined;
+  const unitArea = rawPayload.unit?.areaSqftMin || rawPayload.unit?.areaSqftMax || undefined;
+
+  let enrichedPayload = { ...rawPayload };
+
+  if (projectId) {
+    try {
+      const [
+        liveProject,
+        liveUnitTypes,
+        liveCmaData,
+        liveResaleChains,
+        liveRecentTransactions,
+        livePipeline,
+        liveDeveloper,
+      ] = await Promise.all([
+        getProjectById(projectId).catch(() => null),
+        getProjectUnitTypes(projectId).catch(() => []),
+        getCmaAnalysisForProject({
+          projectId,
+          bedrooms,
+          customTargetPriceAed: unitPrice,
+          customTargetAreaSqft: unitArea,
+        }).catch(() => null),
+        getProjectResaleChains({ projectId, minConfidence: 90 }).catch(() => null),
+        getProjectRecentTransactions({ projectId, bedrooms, limit: 10 }).catch(() => null),
+        getClusterPipelineAnalysis(projectId).catch(() => null),
+        (rawPayload.project?.developerId) ? getDeveloperById(rawPayload.project.developerId).catch(() => null) : null,
+      ]);
+
+      const liveCma = liveCmaData?.cma;
+
+      enrichedPayload = {
+        ...rawPayload,
+        project: liveProject ? { ...rawPayload.project, ...liveProject } : rawPayload.project,
+        unitTypes: liveUnitTypes && liveUnitTypes.length > 0 ? liveUnitTypes : rawPayload.unitTypes || [],
+        cma: liveCma
+          ? {
+              ...rawPayload.cma,
+              ...liveCma,
+              readyGroup: { ...(rawPayload.cma?.readyGroup || {}), ...liveCma.readyGroup },
+              offPlanGroup: { ...(rawPayload.cma?.offPlanGroup || {}), ...liveCma.offPlanGroup },
+              nearHandoverGroup: { ...(rawPayload.cma?.nearHandoverGroup || {}), ...liveCma.nearHandoverGroup },
+              gapToReadyPercent: liveCma.gapToReadyPercent ?? rawPayload.cma?.gapToReadyPercent,
+              gapToOffPlanPercent: liveCma.gapToOffPlanPercent ?? rawPayload.cma?.gapToOffPlanPercent,
+              gapToNearHandoverPercent: liveCma.gapToNearHandoverPercent ?? rawPayload.cma?.gapToNearHandoverPercent,
+              editorialConclusion: rawPayload.cma?.editorialConclusion || liveCma.editorialConclusion,
+            }
+          : rawPayload.cma,
+        resaleChains: rawPayload.resaleChains || liveResaleChains || null,
+        recentTransactions: rawPayload.recentTransactions || liveRecentTransactions || null,
+        pipeline: livePipeline || rawPayload.pipeline,
+        developer: liveDeveloper?.trackRecord || rawPayload.developer,
+      };
+
+      if (!enrichedPayload.aiSynthesis) {
+        try {
+          const cma = enrichedPayload.cma;
+          const uPrice = enrichedPayload.unit?.netPriceAed || enrichedPayload.unit?.listPriceAed || 0;
+          const uArea = enrichedPayload.unit?.areaSqftMin || enrichedPayload.unit?.areaSqftMax || enrichedPayload.unit?.areaSqft || 850;
+          const uPsf = uPrice > 0 && uArea > 0 ? Math.round(uPrice / uArea) : (cma?.targetPsf ? Number(cma.targetPsf) : 0);
+          const bePsf = enrichedPayload.financialScenarios?.breakEven?.breakEvenPsfAed || Math.round(uPsf * 1.05);
+
+          enrichedPayload.aiSynthesis = await generateDossierSynthesis({
+            projectName: enrichedPayload.project?.nameEn || "Project",
+            projectNameAr: enrichedPayload.project?.nameAr,
+            developerName: enrichedPayload.project?.developerBrandName || enrichedPayload.developer?.developerName || "Developer",
+            areaName: enrichedPayload.project?.areaNameEn || "Dubai",
+            bedrooms: bedrooms,
+            unitPriceAed: uPrice,
+            unitAreaSqft: uArea,
+            unitPsf: uPsf,
+            expectedHandoverDate: enrichedPayload.project?.expectedHandoverDate || undefined,
+            readyMedianPsf: cma?.readyGroup?.medianPsf ? Number(cma.readyGroup.medianPsf) : null,
+            readyDealsCount: cma?.readyGroup?.count || 0,
+            gapToReadyPercent: cma?.gapToReadyPercent != null ? Number(cma.gapToReadyPercent) : null,
+            offPlanMedianPsf: cma?.offPlanGroup?.medianPsf ? Number(cma.offPlanGroup.medianPsf) : null,
+            offPlanDealsCount: cma?.offPlanGroup?.count || 0,
+            gapToOffPlanPercent: cma?.gapToOffPlanPercent != null ? Number(cma.gapToOffPlanPercent) : null,
+            nearHandoverMedianPsf: cma?.nearHandoverGroup?.medianPsf ? Number(cma.nearHandoverGroup.medianPsf) : null,
+            nearHandoverDealsCount: cma?.nearHandoverGroup?.count || 0,
+            nocThresholdPercent: enrichedPayload.unit?.minPaidPctForNoc || 34,
+            breakEvenPsfAed: bePsf,
+            flipRoiPct: enrichedPayload.financialScenarios?.flipExit?.cashOnCashRoiPct || 10,
+            holdYieldPct: enrichedPayload.financialScenarios?.holdExit?.netYieldOnTotalCostPct || 7.5,
+            competingCollisionCount: enrichedPayload.pipeline?.collisionWindowProjectsCount || 0,
+            developerAvgDelayDays: enrichedPayload.developer?.averageDelayDays ? Number(enrichedPayload.developer.averageDelayDays) : null,
+          }, (snapshot.locale as any) || "ru");
+        } catch (err) {
+          console.warn("Failed to generate on-demand AI synthesis for report:", err);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to enrich report snapshot with live data:", e);
+    }
+  }
+
+  return JSON.parse(
+    JSON.stringify({
+      ...snapshot,
+      payload: enrichedPayload,
+    })
+  );
 }
 
 export async function listRecentReportSnapshots(limit = 20) {

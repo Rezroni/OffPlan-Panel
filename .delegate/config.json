@@ -1,0 +1,27 @@
+{
+  "version": "delegate-fleet.v1",
+  "lanes": {
+    "implementation": {
+      "implementer": "agy",
+      "model": "gemini-3.8-flash-high"
+    },
+    "bug-fixes-tests": {
+      "implementer": "codex",
+      "model": "gpt-5.6-terra",
+      "effort": "high"
+    },
+    "ui": {
+      "implementer": "agy",
+      "model": "gemini-3.8-flash-high"
+    },
+    "code-review": {
+      "implementer": "codex",
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh"
+    },
+    "migrations-release": {
+      "implementer": "agy",
+      "model": "gemini-3.8-flash-high"
+    }
+  }
+}
