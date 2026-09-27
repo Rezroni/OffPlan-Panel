@@ -229,11 +229,15 @@ export function generateReelsScript(facts: StudioProjectFacts): DualReelsScript 
   const gapTextRu =
     facts.cmaGapReadyPct !== null && facts.cmaGapReadyPct > 0
       ? `на ${facts.cmaGapReadyPct.toFixed(1)}% ниже медианы уже сданных домов в ${facts.areaNameEn}`
+      : facts.cmaGapReadyPct !== null && facts.cmaGapReadyPct < 0
+      ? `с премией +${Math.abs(facts.cmaGapReadyPct).toFixed(1)}% за современный фонд к готовым домам 15-летней давности в ${facts.areaNameEn}`
       : `на уровне текущего вторичного рынка`;
 
   const gapTextAr =
     facts.cmaGapReadyPct !== null && facts.cmaGapReadyPct > 0
       ? `أقل بنسبة ${facts.cmaGapReadyPct.toFixed(1)}% من متوسط أسعار العقارات الجاهزة في ${facts.areaNameAr || facts.areaNameEn}`
+      : facts.cmaGapReadyPct !== null && facts.cmaGapReadyPct < 0
+      ? `بعلاوة +${Math.abs(facts.cmaGapReadyPct).toFixed(1)}% للبناء الحديث مقارنة بالعقارات الجاهزة في ${facts.areaNameAr || facts.areaNameEn}`
       : `متوافق مع متوسط الأسعار الحالية في السوق`;
 
   // Trade-off description

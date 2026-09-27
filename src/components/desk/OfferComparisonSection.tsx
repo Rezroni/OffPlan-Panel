@@ -301,7 +301,11 @@ export function OfferComparisonSection({
                         : "text-amber-800 bg-amber-50 border border-amber-200"
                     }`}
                   >
-                    {cmaRes.gapToReadyPercent ? `${cmaRes.gapToReadyPercent.toFixed(1)}% Discount` : "Insufficient Sample (<5)"}
+                    {cmaRes.gapToReadyPercent
+                      ? cmaRes.gapToReadyPercent.greaterThan(0)
+                        ? `-${cmaRes.gapToReadyPercent.toFixed(1)}% Discount`
+                        : `+${cmaRes.gapToReadyPercent.abs().toFixed(1)}% Premium`
+                      : "Insufficient Sample (<5)"}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600 italic pt-2 border-t border-slate-200/80 leading-relaxed">

@@ -268,16 +268,26 @@ export default function ResearchDeskPage() {
               <div className="text-[10px] uppercase font-bold tracking-wider text-slate-500 flex items-center justify-between">
                 <span>CMA vs Ready</span>
                 {selectedCma.gapToReadyPercent ? (
-                  <span className="text-[10px] font-bold text-emerald-700 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
-                    {selectedCma.gapToReadyPercent.toFixed(1)}% {selectedCma.gapToReadyPercent.greaterThan(0) ? "Discount" : "Premium"}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    selectedCma.gapToReadyPercent.greaterThan(0)
+                      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                      : "text-amber-800 bg-amber-50 border-amber-200"
+                  }`}>
+                    {selectedCma.gapToReadyPercent.greaterThan(0)
+                      ? `-${selectedCma.gapToReadyPercent.toFixed(1)}% Discount`
+                      : `+${selectedCma.gapToReadyPercent.abs().toFixed(1)}% Premium`}
                   </span>
                 ) : (
                   <span className="text-[10px] font-mono text-slate-500">Comps active</span>
                 )}
               </div>
               <div className="my-2.5">
-                <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-700 tracking-tight">
-                  {selectedCma.gapToReadyPercent && selectedCma.gapToReadyPercent.greaterThan(0) ? "Discounted" : "Benchmark"}
+                <div className={`text-xl sm:text-2xl font-bold font-mono tracking-tight ${
+                  selectedCma.gapToReadyPercent && selectedCma.gapToReadyPercent.greaterThan(0)
+                    ? "text-emerald-700"
+                    : "text-amber-700"
+                }`}>
+                  {selectedCma.gapToReadyPercent && selectedCma.gapToReadyPercent.greaterThan(0) ? "Discounted" : "New-build Premium"}
                 </div>
                 <div className="text-[11px] text-slate-500 truncate mt-0.5 font-medium">
                   {selectedOffer.projectName}

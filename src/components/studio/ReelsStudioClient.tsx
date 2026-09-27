@@ -392,12 +392,22 @@ export function ReelsStudioClient({
                     <span className="text-[10px] text-slate-400 block">
                       {isRtl ? "الفجوة مع السوق الجاهز" : "Разрыв с готовым рынком"}
                     </span>
-                    <span className="text-sm font-bold text-emerald-400">
-                      {facts.cmaGapReadyPct !== null ? `${facts.cmaGapReadyPct.toFixed(1)}%` : "0%"} {isRtl ? "أقل" : "дисконт"}
+                    <span className={`text-sm font-bold ${
+                      facts.cmaGapReadyPct !== null && facts.cmaGapReadyPct > 0 ? "text-emerald-400" : "text-amber-400"
+                    }`}>
+                      {facts.cmaGapReadyPct !== null
+                        ? facts.cmaGapReadyPct > 0
+                          ? `-${facts.cmaGapReadyPct.toFixed(1)}% ${isRtl ? "خصم" : "дисконт"}`
+                          : `+${Math.abs(facts.cmaGapReadyPct).toFixed(1)}% ${isRtl ? "علاوة" : "премия"}`
+                        : `0% ${isRtl ? "سوق" : "рынок"}`}
                     </span>
                   </div>
-                  <span className="px-2 py-1 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                    {facts.cmaSampleStatus === "ROBUST" ? "N≥15 ROBUST" : "CMA VERIFIED"}
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold border ${
+                    facts.cmaGapReadyPct !== null && facts.cmaGapReadyPct > 0
+                      ? "bg-emerald-950 text-emerald-400 border-emerald-800"
+                      : "bg-amber-950 text-amber-400 border-amber-800"
+                  }`}>
+                    {facts.cmaGapReadyPct !== null && facts.cmaGapReadyPct < 0 ? "NEW-BUILD PREMIUM" : facts.cmaSampleStatus === "ROBUST" ? "N≥15 ROBUST" : "CMA VERIFIED"}
                   </span>
                 </div>
 
