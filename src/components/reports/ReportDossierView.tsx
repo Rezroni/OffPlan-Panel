@@ -825,8 +825,16 @@ export function ReportDossierView({ snapshot, isPrintMode }: ReportDossierViewPr
               </div>
 
               <div className="text-[10px] text-emerald-800 bg-emerald-100/50 p-2 rounded-lg border border-emerald-200/50">
-                <strong>{gapToOffPlan !== null ? `${gapToOffPlan > 0 ? "+" : ""}${gapToOffPlan.toFixed(1)}%` : "0.0%"}</strong>{" "}
-                {isRtl ? "مقارنة بمتوسط مشاريع قيد الإنشاء" : "vs Cluster Off-Plan Pipeline"}
+                <strong>
+                  {gapToOffPlan !== null
+                    ? gapToOffPlan > 0
+                      ? `-${gapToOffPlan.toFixed(1)}%`
+                      : `+${Math.abs(gapToOffPlan).toFixed(1)}%`
+                    : "0.0%"}
+                </strong>{" "}
+                {gapToOffPlan !== null && gapToOffPlan > 0
+                  ? isRtl ? "خصم عن معروض مشاريع قيد الإنشاء" : "Дисконт к строящимся проектам"
+                  : isRtl ? "مقارنة بمتوسط مشاريع قيد الإنشاء" : "vs Cluster Off-Plan Pipeline"}
               </div>
             </div>
 
@@ -866,8 +874,16 @@ export function ReportDossierView({ snapshot, isPrintMode }: ReportDossierViewPr
               </div>
 
               <div className="text-[10px] text-slate-700 bg-slate-200/60 p-2 rounded-lg">
-                <strong>{gapToReady !== null ? `+${Math.abs(gapToReady).toFixed(1)}%` : "—"}</strong>{" "}
-                {isRtl ? "فارق السعر مقابل أبراج جاهزة عمرها 15-20 عام" : "New-build premium over 15–20 yr older legacy towers"}
+                <strong>
+                  {gapToReady !== null
+                    ? gapToReady > 0
+                      ? `-${gapToReady.toFixed(1)}%`
+                      : `+${Math.abs(gapToReady).toFixed(1)}%`
+                    : "—"}
+                </strong>{" "}
+                {gapToReady !== null && gapToReady < 0
+                  ? isRtl ? "علاوة البناء الجديد مقابل أبراج عمرها 15-20 عاماً" : "Премия за новостройку над фондом 15–20 лет"
+                  : isRtl ? "خصم عن وسيط العقارات الجاهزة" : "Дисконт к вторичному готовому фонду"}
               </div>
             </div>
 
@@ -1062,16 +1078,28 @@ export function ReportDossierView({ snapshot, isPrintMode }: ReportDossierViewPr
             {/* TAB 1: VERDICT & TAKEAWAYS */}
             {activeCmaTab === "verdict" && (
               <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-3 text-xs leading-relaxed text-slate-700">
-                <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  {isRtl ? "التحليل المنهجي المستقل (§7):" : "Методологический синтез (§7):"}
+                <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    {isRtl ? "التحليل المنهجي المستقل (§7):" : "Методологический синтез (§7):"}
+                  </div>
+                  {aiSynthesis?.source && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-200/70 text-slate-700">
+                      {aiSynthesis.source === "gemini_2.5_flash" ? "Google Gemini 2.5 Flash Verified" : "DLD Evidence Engine"}
+                    </span>
+                  )}
                 </div>
                 <p>
-                  {cma?.editorialConclusion ||
-                    (isRtl
-                      ? "تم فحص كافة المعاملات في دائرة الأراضي والأملاك بدقة إحصائية تستبعد العقود غير الطبيعية. الفارق السعري يعكس تفوق جودة البناء الجديد وحزمة التأثيث الفاخر مع توفير هامش ربحي جذاب للمستثمر."
-                      : "Расчёт выполнен на базе сплошного статистического среза транзакций DLD. Исключены спекулятивные выбросы (Interquartile Range trim). Ценовая надбавка к готовому фонду обоснована новизной инженерных сетей, гарантией девелопера на конструктив и наличием рассрочки.")}
+                  {aiSynthesis?.cmaRationale || defaultCmaRationale}
                 </p>
+                {aiSynthesis?.investorVerdict && (
+                  <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-3 text-emerald-950 font-medium text-xs">
+                    <strong className="block text-[11px] text-emerald-800 uppercase tracking-wider font-bold mb-0.5">
+                      {isRtl ? "خلاصة قرار المستثمر:" : "Итоговый вердикт инвестору:"}
+                    </strong>
+                    <span>{aiSynthesis.investorVerdict}</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                   <div className="bg-white p-3 rounded-xl border border-slate-200">
                     <strong className="text-slate-900 block mb-1">
